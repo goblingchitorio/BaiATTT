@@ -1,0 +1,8 @@
+{
+  "name": "TINTITUN.MOVIE",
+  "description": "Nền tảng truyền thông và bản đồ cộng đồng giảm thiểu rác thải nhựa, thống kê trực quan và kêu gọi hành động bảo vệ môi trường.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
