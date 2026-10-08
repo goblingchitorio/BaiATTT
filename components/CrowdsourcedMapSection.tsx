@@ -22,18 +22,32 @@ import {
   Crosshair,
   Maximize2,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  ShieldCheck,
+  CheckCircle2,
+  Mail,
+  Check,
+  X,
+  FileText,
+  AlertOctagon,
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 import L from 'leaflet';
 
 interface CrowdsourcedMapSectionProps {
   onHotspotsCountChange?: (count: number) => void;
+  onNavigateToRegistry?: () => void;
 }
+
+const ADMIN_EMAIL = '26162051@student.hcmute.edu.vn';
 
 const CITY_PRESETS = [
   { name: 'Hà Nội', lat: 21.0285, lng: 105.8542 },
   { name: 'Đà Nẵng', lat: 16.0544, lng: 108.2022 },
   { name: 'TP.HCM', lat: 10.7769, lng: 106.7009 },
+  { name: 'Cầu Kênh Lương (Tham Lương)', lat: 10.8256, lng: 106.6189 },
+  { name: 'Kênh Đôi (Quận 8)', lat: 10.7512, lng: 106.6854 },
   { name: 'Nha Trang', lat: 12.2388, lng: 109.1967 },
   { name: 'Cần Thơ', lat: 10.0452, lng: 105.7469 },
   { name: 'Phú Quốc', lat: 10.2899, lng: 103.9840 }
@@ -95,39 +109,56 @@ const TILE_PROVIDERS = {
 };
 
 const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
-  onHotspotsCountChange
+  onHotspotsCountChange,
+  onNavigateToRegistry
 }) => {
   const [mapTheme, setMapTheme] = useState<keyof typeof TILE_PROVIDERS>('voyager');
   const currentTileLayerRef = useRef<L.TileLayer | null>(null);
 
+  // 1. Verified official hotspots (including those In-Progress)
   const [hotspots, setHotspots] = useState<WasteHotspot[]>(() => {
-    const saved = localStorage.getItem('gengreen_hotspots');
+    const saved = localStorage.getItem('gengreen_verified_hotspots');
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {
-        return INITIAL_HOTSPOTS;
-      }
+      } catch (e) {}
     }
-    return INITIAL_HOTSPOTS;
+    return INITIAL_HOTSPOTS.filter((h) => !h.isPendingVerification);
   });
 
-  const [filterSeverity, setFilterSeverity] = useState<'all' | 'critical' | 'moderate' | 'cleaned'>('all');
+  // 2. Pending verification hotspots waiting for admin confirmation
+  const [pendingHotspots, setPendingHotspots] = useState<WasteHotspot[]>(() => {
+    const saved = localStorage.getItem('gengreen_pending_hotspots');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return INITIAL_HOTSPOTS.filter((h) => h.isPendingVerification);
+  });
+
+  // Active filter tab
+  const [filterSeverity, setFilterSeverity] = useState<
+    'all' | 'in_progress' | 'pending' | 'critical' | 'moderate' | 'cleaned'
+  >('all');
+
   const [selectedHotspot, setSelectedHotspot] = useState<WasteHotspot | null>(null);
   const [volunteerModalHotspot, setVolunteerModalHotspot] = useState<WasteHotspot | null>(null);
   const [activityDetailHotspot, setActivityDetailHotspot] = useState<WasteHotspot | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [verificationFeedback, setVerificationFeedback] = useState<string | null>(null);
 
   // Form State
   const [formTitle, setFormTitle] = useState('');
-  const [formLocation, setFormLocation] = useState('Quận 1, TP. Hồ Chí Minh');
-  const [formLat, setFormLat] = useState<number>(10.7769);
-  const [formLng, setFormLng] = useState<number>(106.7009);
+  const [formLocation, setFormLocation] = useState('Chân cầu Tham Lương, Kênh Lương, Q. Tân Bình, TP.HCM');
+  const [formLat, setFormLat] = useState<number>(10.8256);
+  const [formLng, setFormLng] = useState<number>(106.6189);
   const [formSeverity, setFormSeverity] = useState<'critical' | 'moderate'>('critical');
   const [formScale, setFormScale] = useState<'Nhỏ' | 'Vừa' | 'Điểm đen tự phát lớn'>('Điểm đen tự phát lớn');
   const [formDescription, setFormDescription] = useState('');
-  const [formImage, setFormImage] = useState<string>('https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&w=700&q=80');
+  const [formImage, setFormImage] = useState<string>('/cau_kenh_luong_that.jpg');
 
   // Main Map Refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -139,13 +170,17 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
   const formMapInstanceRef = useRef<L.Map | null>(null);
   const formMarkerRef = useRef<L.Marker | null>(null);
 
-  // Save to localStorage
+  // Persist to localStorage
   useEffect(() => {
-    localStorage.setItem('gengreen_hotspots', JSON.stringify(hotspots));
+    localStorage.setItem('gengreen_verified_hotspots', JSON.stringify(hotspots));
     if (onHotspotsCountChange) {
       onHotspotsCountChange(hotspots.length);
     }
   }, [hotspots, onHotspotsCountChange]);
+
+  useEffect(() => {
+    localStorage.setItem('gengreen_pending_hotspots', JSON.stringify(pendingHotspots));
+  }, [pendingHotspots]);
 
   // ==============================================================
   // 1. MAIN COMMUNITY LEAFLET MAP INITIALIZATION
@@ -163,7 +198,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       scrollWheelZoom: true
     });
 
-    // Initial tile layer (CartoDB Voyager: 100% reliable on Netlify, powered by OSM data)
+    // Initial tile layer (CartoDB Voyager)
     const provider = TILE_PROVIDERS[mapTheme];
     const initialTile = L.tileLayer(provider.url, provider.options).addTo(map);
     currentTileLayerRef.current = initialTile;
@@ -178,7 +213,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       const lng = parseFloat(e.latlng.lng.toFixed(5));
       setFormLat(lat);
       setFormLng(lng);
-      setFormLocation(`Tọa độ: ${lat}, ${lng}`);
+      setFormLocation(`Tọa độ GPS: ${lat}, ${lng}`);
 
       // Sync form mini map
       if (formMapInstanceRef.current && formMarkerRef.current) {
@@ -187,57 +222,37 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       }
     });
 
-    // Ensure map tiles render crisply whenever container is mounted or resized
+    // Redraw on resize
     const resizeTimer1 = setTimeout(() => map.invalidateSize(), 100);
-    const resizeTimer2 = setTimeout(() => map.invalidateSize(), 350);
-    const resizeTimer3 = setTimeout(() => map.invalidateSize(), 800);
+    const resizeTimer2 = setTimeout(() => map.invalidateSize(), 400);
 
     const handleResize = () => map.invalidateSize();
     window.addEventListener('resize', handleResize);
 
-    // IntersectionObserver to redraw tiles as soon as map scrolls into viewport
-    let observer: IntersectionObserver | null = null;
-    if (mapContainerRef.current && 'IntersectionObserver' in window) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              map.invalidateSize();
-              setTimeout(() => map.invalidateSize(), 200);
-            }
-          });
-        },
-        { threshold: 0.1 }
-      );
-      observer.observe(mapContainerRef.current);
-    }
-
     return () => {
       clearTimeout(resizeTimer1);
       clearTimeout(resizeTimer2);
-      clearTimeout(resizeTimer3);
       window.removeEventListener('resize', handleResize);
-      if (observer) observer.disconnect();
       map.remove();
       mapInstanceRef.current = null;
     };
   }, []);
 
-  // Update Main Map Tile Layer when mapTheme changes
+  // Switch Tile Provider
   useEffect(() => {
     if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
     if (currentTileLayerRef.current) {
-      mapInstanceRef.current.removeLayer(currentTileLayerRef.current);
+      map.removeLayer(currentTileLayerRef.current);
     }
     const provider = TILE_PROVIDERS[mapTheme];
-    const newTile = L.tileLayer(provider.url, provider.options).addTo(mapInstanceRef.current);
-    newTile.bringToBack();
-    currentTileLayerRef.current = newTile;
-    mapInstanceRef.current.invalidateSize();
+    const newLayer = L.tileLayer(provider.url, provider.options);
+    newLayer.addTo(map);
+    currentTileLayerRef.current = newLayer;
   }, [mapTheme]);
 
   // ==============================================================
-  // 2. REPORT FORM MINI-MAP INITIALIZATION (Bản đồ trong phần báo cáo)
+  // 2. REPORT FORM MINI-MAP INITIALIZATION
   // ==============================================================
   useEffect(() => {
     if (!formMapContainerRef.current) return;
@@ -245,44 +260,29 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
 
     const miniMap = L.map(formMapContainerRef.current, {
       center: [formLat, formLng],
-      zoom: 13,
+      zoom: 12,
       minZoom: 5,
       maxZoom: 18,
-      scrollWheelZoom: false,
-      zoomControl: true
+      scrollWheelZoom: true,
+      zoomControl: true,
+      attributionControl: false
     });
 
-    // Highly reliable Fastly CDN tiles for form mini-map
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 20
-    }).addTo(miniMap);
+    const tile = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      {
+        subdomains: 'abcd',
+        maxZoom: 19
+      }
+    );
+    tile.addTo(miniMap);
 
-    // Form mini-map intersection observer
-    let formObserver: IntersectionObserver | null = null;
-    if (formMapContainerRef.current && 'IntersectionObserver' in window) {
-      formObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              miniMap.invalidateSize();
-              setTimeout(() => miniMap.invalidateSize(), 200);
-            }
-          });
-        },
-        { threshold: 0.1 }
-      );
-      formObserver.observe(formMapContainerRef.current);
-    }
-
-    // Custom pulsing pin for report target
-    const pinIcon = L.divIcon({
-      className: 'custom-leaflet-marker',
+    const redPinIcon = L.divIcon({
+      className: 'custom-form-pin',
       html: `
         <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
-          <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: #ef4444; opacity: 0.35; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="width: 24px; height: 24px; border-radius: 50%; background-color: #ef4444; border: 2.5px solid #ffffff; box-shadow: 0 0 12px rgba(239, 68, 68, 0.8); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: bold;">
+          <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(239,68,68,0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div style="width: 22px; height: 22px; border-radius: 50%; background: #ef4444; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: bold;">
             📍
           </div>
         </div>
@@ -292,27 +292,20 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
     });
 
     const marker = L.marker([formLat, formLng], {
-      icon: pinIcon,
+      icon: redPinIcon,
       draggable: true
     }).addTo(miniMap);
-
     formMarkerRef.current = marker;
 
-    // Drag marker on mini map
-    marker.on('dragend', (event) => {
-      const position = event.target.getLatLng();
-      const lat = parseFloat(position.lat.toFixed(5));
-      const lng = parseFloat(position.lng.toFixed(5));
+    marker.on('dragend', () => {
+      const pos = marker.getLatLng();
+      const lat = parseFloat(pos.lat.toFixed(5));
+      const lng = parseFloat(pos.lng.toFixed(5));
       setFormLat(lat);
       setFormLng(lng);
       setFormLocation(`Tọa độ: ${lat}, ${lng}`);
-
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.panTo([lat, lng]);
-      }
     });
 
-    // Click anywhere on mini map to reposition marker
     miniMap.on('click', (e: L.LeafletMouseEvent) => {
       const lat = parseFloat(e.latlng.lat.toFixed(5));
       const lng = parseFloat(e.latlng.lng.toFixed(5));
@@ -320,17 +313,13 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       setFormLng(lng);
       setFormLocation(`Tọa độ: ${lat}, ${lng}`);
       marker.setLatLng([lat, lng]);
-
       if (mapInstanceRef.current) {
         mapInstanceRef.current.panTo([lat, lng]);
       }
     });
 
     formMapInstanceRef.current = miniMap;
-
-    // Refresh mini-map size
-    setTimeout(() => miniMap.invalidateSize(), 200);
-    setTimeout(() => miniMap.invalidateSize(), 600);
+    setTimeout(() => miniMap.invalidateSize(), 300);
 
     return () => {
       miniMap.remove();
@@ -338,7 +327,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
     };
   }, []);
 
-  // Sync Form Mini-Map when formLat/formLng change programmatically (e.g. via GPS or Preset)
+  // Sync coordinates
   const updatePinCoordinates = (lat: number, lng: number, locName?: string) => {
     setFormLat(lat);
     setFormLng(lng);
@@ -352,72 +341,101 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       setTimeout(() => formMapInstanceRef.current?.invalidateSize(), 150);
     }
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([lat, lng], 12);
+      mapInstanceRef.current.flyTo([lat, lng], 13);
       setTimeout(() => mapInstanceRef.current?.invalidateSize(), 150);
     }
   };
 
-  // Update Main Map Markers on filter or hotspots change
+  // Determine which hotspots to render on map based on active filter
+  const displayedHotspots = (() => {
+    switch (filterSeverity) {
+      case 'pending':
+        return pendingHotspots;
+      case 'in_progress':
+        return hotspots.filter(
+          (h) => h.status === 'in_progress' || h.statusText.includes('quá trình xử lý')
+        );
+      case 'critical':
+        return hotspots.filter((h) => h.severity === 'critical' && !h.isPendingVerification);
+      case 'moderate':
+        return hotspots.filter((h) => h.severity === 'moderate' && !h.isPendingVerification);
+      case 'cleaned':
+        return hotspots.filter((h) => h.severity === 'cleaned');
+      case 'all':
+      default:
+        return [...hotspots, ...pendingHotspots];
+    }
+  })();
+
+  // Render Markers on Leaflet Map
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
     const markersGroup = markersLayerRef.current;
     markersGroup.clearLayers();
 
-    const filtered =
-      filterSeverity === 'all'
-        ? hotspots
-        : hotspots.filter((h) => h.severity === filterSeverity);
+    displayedHotspots.forEach((hotspot) => {
+      const isPending = hotspot.isPendingVerification === true;
+      const isInProgress =
+        hotspot.status === 'in_progress' || hotspot.statusText.includes('quá trình xử lý');
 
-    filtered.forEach((hotspot) => {
-      const color =
-        hotspot.severity === 'critical'
-          ? '#ef4444' // Red 🔴
-          : hotspot.severity === 'moderate'
-          ? '#eab308' // Yellow 🟡
-          : '#10b981'; // Green 🟢
+      let color = '#ef4444'; // Red
+      let symbol = '!';
+
+      if (isPending) {
+        color = '#f59e0b'; // Amber 🟡
+        symbol = '⏳';
+      } else if (isInProgress) {
+        color = '#0284c7'; // Sky Blue ⚙️
+        symbol = '⚙️';
+      } else if (hotspot.severity === 'cleaned') {
+        color = '#10b981'; // Green ✓
+        symbol = '✓';
+      } else if (hotspot.severity === 'moderate') {
+        color = '#eab308'; // Yellow
+        symbol = '!';
+      }
 
       const customIcon = L.divIcon({
         className: 'custom-leaflet-marker',
         html: `
-          <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-            <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${color}; opacity: 0.25;"></div>
-            <div style="width: 22px; height: 22px; border-radius: 50%; background-color: ${color}; border: 2.5px solid #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: bold;">
-              ${hotspot.severity === 'cleaned' ? '✓' : '!'}
+          <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${color}; opacity: ${
+          isPending ? '0.45' : '0.25'
+        }; ${isPending ? 'animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;' : ''}"></div>
+            <div style="width: 24px; height: 24px; border-radius: 50%; background-color: ${color}; border: 2.5px solid #ffffff; box-shadow: 0 0 12px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: bold;">
+              ${symbol}
             </div>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
       });
 
       const marker = L.marker([hotspot.lat, hotspot.lng], { icon: customIcon });
 
       const popupContent = `
-        <div style="font-family: inherit; color: #ffffff; padding: 4px; max-width: 220px;">
+        <div style="font-family: inherit; color: #ffffff; padding: 4px; max-width: 230px;">
+          ${
+            isPending
+              ? `<div style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; padding: 4px 6px; border-radius: 6px; margin-bottom: 6px; font-size: 10px; color: #fbbf24; font-weight: bold;">
+                  ⏳ CHỜ XÁC NHẬN (Gmail: ${ADMIN_EMAIL})
+                </div>`
+              : isInProgress
+              ? `<div style="background: rgba(2, 132, 199, 0.2); border: 1px solid #0284c7; padding: 4px 6px; border-radius: 6px; margin-bottom: 6px; font-size: 10px; color: #38bdf8; font-weight: bold;">
+                  ⚙️ TRONG QUÁ TRÌNH XỬ LÝ (Đã xác nhận có rác)
+                </div>`
+              : ''
+          }
           <strong style="font-size: 13px; display: block; margin-bottom: 2px; color: #ffffff;">${hotspot.title}</strong>
           <div style="font-size: 11px; color: #a1a1aa; margin-bottom: 4px;">📍 ${hotspot.locationName}</div>
           <div style="font-size: 10px; font-weight: 600; color: ${color}; margin-bottom: 4px;">
-            ${
-              hotspot.severity === 'critical'
-                ? '🔴 Ô nhiễm nghiêm trọng'
-                : hotspot.severity === 'moderate'
-                ? '🟡 Ô nhiễm trung bình'
-                : '🟢 Đã dọn dẹp xong'
-            }
+            ${hotspot.statusText}
           </div>
-          <p style="font-size: 11px; line-height: 1.3; color: #d4d4d8; margin: 0 0 6px 0;">${hotspot.description.slice(0, 80)}...</p>
+          <p style="font-size: 11px; line-height: 1.3; color: #d4d4d8; margin: 0 0 6px 0;">${hotspot.description.slice(0, 75)}...</p>
           <div style="border-top: 1px solid #3f3f46; padding-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${hotspot.lat},${hotspot.lng}" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; font-weight: 600; text-decoration: underline; font-size: 11px; display: flex; align-items: center; gap: 4px;">
-              🧭 Chỉ đường bằng Google Maps ↗
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${hotspot.lat},${hotspot.lng}" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; font-weight: 600; text-decoration: underline; font-size: 11px;">
+              🧭 Chỉ đường Google Maps ↗
             </a>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <a href="https://www.google.com/maps/search/?api=1&query=${hotspot.lat},${hotspot.lng}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; font-size: 11px;">
-                📍 Xem trên Google Maps
-              </a>
-              <a href="https://www.openstreetmap.org/?mlat=${hotspot.lat}&mlon=${hotspot.lng}#map=16/${hotspot.lat}/${hotspot.lng}" target="_blank" rel="noopener noreferrer" style="color: #34d399; font-size: 11px;">
-                🗺️ OSM
-              </a>
-            </div>
           </div>
         </div>
       `;
@@ -429,7 +447,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
 
       markersGroup.addLayer(marker);
     });
-  }, [hotspots, filterSeverity]);
+  }, [displayedHotspots]);
 
   // Center map on specific hotspot
   const panToHotspot = (hotspot: WasteHotspot) => {
@@ -441,9 +459,22 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
     }
   };
 
-  // Upvote / "Tôi cũng thấy điểm này"
+  // Upvote
   const handleToggleUpvote = (id: string) => {
     setHotspots((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          const isUpvoted = !item.hasUpvoted;
+          return {
+            ...item,
+            hasUpvoted: isUpvoted,
+            upvotes: isUpvoted ? item.upvotes + 1 : item.upvotes - 1
+          };
+        }
+        return item;
+      })
+    );
+    setPendingHotspots((prev) =>
       prev.map((item) => {
         if (item.id === id) {
           const isUpvoted = !item.hasUpvoted;
@@ -472,9 +503,9 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
         updatePinCoordinates(lat, lng, `Vị trí GPS của bạn: ${lat}, ${lng}`);
         setGpsLoading(false);
       },
-      (err) => {
+      () => {
         setGpsLoading(false);
-        alert('Không thể lấy vị trí hiện tại. Vui lòng cấp quyền vị trí hoặc click chọn trực tiếp trên bản đồ.');
+        alert('Không thể lấy vị trí hiện tại. Vui lòng click chọn trực tiếp trên bản đồ.');
       }
     );
   };
@@ -491,7 +522,9 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
     }
   };
 
-  // Submit Report
+  // ==============================================================
+  // 3. SUBMIT NEW REPORT -> PENDING VERIFICATION WORKFLOW
+  // ==============================================================
   const handleSubmitReport = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim() || !formLocation.trim() || !formDescription.trim()) {
@@ -499,27 +532,30 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       return;
     }
 
-    const newHotspot: WasteHotspot = {
-      id: `hs-${Date.now()}`,
+    const newPendingId = `hs-${Date.now()}`;
+    const newPendingHotspot: WasteHotspot = {
+      id: newPendingId,
       title: formTitle,
       locationName: formLocation,
       lat: formLat,
       lng: formLng,
       severity: formSeverity,
+      status: 'pending_verification',
+      isPendingVerification: true,
       description: `${formDescription} (Quy mô: ${formScale})`,
-      imageUrl: formImage,
-      reportedAt: 'Hôm nay',
-      reportedBy: 'Người dân địa phương',
+      imageUrl: formImage || '/cau_kenh_luong_that.jpg',
+      reportedAt: 'Vừa gửi (Hôm nay)',
+      reportedBy: 'Người dân địa phương gửi báo cáo',
       upvotes: 1,
       hasUpvoted: true,
       volunteersNeeded: formSeverity === 'critical' ? 25 : 10,
       volunteersJoined: 1,
-      statusText: 'Đã tiếp nhận báo cáo · Chờ duyệt ra quân',
+      statusText: `Chờ xác nhận (Đang chờ admin ${ADMIN_EMAIL} duyệt)`,
       cleanupDetails: {
         eventDate: 'Dự kiến vào cuối tuần tới (07:30 - 11:30)',
         meetingPoint: formLocation,
         coordinatorName: 'Nguyễn Ngọc Như Ý (Field Coordinator GENGREEN)',
-        coordinatorContact: '0934.567.890 / Zalo: GENGREEN Vietnam',
+        coordinatorContact: `0934.567.890 / Ban điều phối: ${ADMIN_EMAIL}`,
         targetWaste: `Dự kiến thu gom ~${formSeverity === 'critical' ? '3.0' : '1.5'} tấn rác nhựa và bao bì nilon`,
         requiredGear: [
           'Găng tay vải tráng cao su chống vật sắc nhọn',
@@ -535,27 +571,33 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
       }
     };
 
-    setHotspots((prev) => [newHotspot, ...prev]);
-    setSelectedHotspot(newHotspot);
+    // Add to pending hotspots
+    setPendingHotspots((prev) => [newPendingHotspot, ...prev]);
+    setSelectedHotspot(newPendingHotspot);
+    setToastMessage(
+      `Báo cáo đã gửi thành công và đang ở trạng thái 'CHỜ XÁC NHẬN'! Biểu mẫu thông báo đã được gửi về Gmail: ${ADMIN_EMAIL}. Khi Gmail này bấm xác nhận có rác, điểm sẽ được lưu chính thức lên web với trạng thái 'Trong quá trình xử lý'.`
+    );
     setShowSuccessToast(true);
 
-    // Forward report data to target email
+    // Forward report form to ADMIN_EMAIL via FormSubmit
     try {
-      fetch('https://formsubmit.co/ajax/26162120@student.hcmute.edu.vn', {
+      fetch(`https://formsubmit.co/ajax/${ADMIN_EMAIL}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          _subject: `[GENGREEN] Báo cáo điểm đen rác thải: ${formTitle}`,
+          _subject: `[GENGREEN XÁC NHẬN ĐIỂM RÁC] Cần phê duyệt: ${formTitle}`,
           _template: 'table',
           _captcha: 'false',
+          'Tình trạng': '⏳ ĐANG CHỜ XÁC NHẬN CÓ RÁC',
           'Tên điểm rác': formTitle,
           'Địa chỉ / Vị trí': formLocation,
           'Tọa độ GPS': `${formLat}, ${formLng}`,
-          'Mức độ': formSeverity === 'critical' ? '🔴 Điểm đen rác lớn' : '🟡 Ô nhiễm trung bình',
+          'Mức độ ô nhiễm': formSeverity === 'critical' ? '🔴 Điểm đen rác lớn' : '🟡 Ô nhiễm trung bình',
           'Quy mô rác': formScale,
           'Mô tả hiện trạng': formDescription,
-          'Thời gian': new Date().toLocaleString('vi-VN'),
-          'Hệ thống tiếp nhận': 'GENGREEN ECO-ACTION -> 26162120@student.hcmute.edu.vn'
+          'Thời gian gửi báo cáo': new Date().toLocaleString('vi-VN'),
+          'Hướng dẫn phê duyệt': `Khi ban điều phối qua Gmail ${ADMIN_EMAIL} bấm xác nhận có rác, điểm này sẽ được lưu chính thức lên trang web và hiển thị trạng thái "Trong quá trình xử lý".`,
+          'Email tiếp nhận': ADMIN_EMAIL
         })
       }).catch((err) => console.warn('FormSubmit report forward:', err));
     } catch (e) {}
@@ -569,7 +611,56 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
 
     setTimeout(() => {
       setShowSuccessToast(false);
-    }, 4000);
+    }, 6000);
+  };
+
+  // ==============================================================
+  // 4. ADMIN VERIFY HOTSPOT -> SAVE TO WEB & MARK "TRONG QUÁ TRÌNH XỬ LÝ"
+  // ==============================================================
+  const handleVerifyHotspot = (hotspotId: string) => {
+    const target = pendingHotspots.find((p) => p.id === hotspotId);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      `Xác nhận điểm ô nhiễm "${target.title}" là CÓ RÁC THỰC TẾ?\n\nThao tác này sẽ lưu điểm chính thức lên hệ thống và chuyển trạng thái sang "Trong quá trình xử lý" theo phê duyệt của ${ADMIN_EMAIL}.`
+    );
+    if (!confirmed) return;
+
+    const verifiedHotspot: WasteHotspot = {
+      ...target,
+      isPendingVerification: false,
+      status: 'in_progress',
+      statusText: `Trong quá trình xử lý (Đã xác nhận có rác bởi ban điều phối ${ADMIN_EMAIL})`,
+      verifiedBy: ADMIN_EMAIL,
+      verifiedAt: new Date().toLocaleString('vi-VN')
+    };
+
+    // Move to official hotspots list
+    setHotspots((prev) => [verifiedHotspot, ...prev.filter((h) => h.id !== hotspotId)]);
+    setPendingHotspots((prev) => prev.filter((p) => p.id !== hotspotId));
+    setSelectedHotspot(verifiedHotspot);
+
+    setVerificationFeedback(
+      `Đã xác nhận điểm rác thành công bởi ${ADMIN_EMAIL}! Điểm đã được lưu chính thức lên trang web và đang hiển thị trạng thái "Trong quá trình xử lý".`
+    );
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([verifiedHotspot.lat, verifiedHotspot.lng], 13);
+    }
+
+    setTimeout(() => {
+      setVerificationFeedback(null);
+    }, 5000);
+  };
+
+  // Reject false report
+  const handleRejectHotspot = (hotspotId: string) => {
+    const confirmed = window.confirm('Bạn có chắc muốn từ chối hoặc xóa điểm báo cáo này?');
+    if (!confirmed) return;
+    setPendingHotspots((prev) => prev.filter((p) => p.id !== hotspotId));
+    if (selectedHotspot?.id === hotspotId) {
+      setSelectedHotspot(null);
+    }
   };
 
   const handleVolunteerSuccess = (data: VolunteerFormData) => {
@@ -586,89 +677,141 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
     );
   };
 
-  const filteredHotspots =
-    filterSeverity === 'all'
-      ? hotspots
-      : hotspots.filter((h) => h.severity === filterSeverity);
-
   return (
     <section id="map" className="py-24 bg-zinc-950 relative border-t border-zinc-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
           <div>
             <div className="flex items-center gap-2 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-2">
               <MapPin className="w-4 h-4" />
               <span>PHẦN 4 · BẢN ĐỒ CỘNG ĐỒNG GENGREEN</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Bản đồ Tương tác &amp; Báo cáo Điểm đen Rác thải Nhựa
+              Bản Đồ Điểm Đen Rác Thải Nhựa &amp; Phê Duyệt Báo Cáo
             </h2>
             <p className="text-zinc-400 text-sm sm:text-base mt-2 max-w-3xl">
-              Nền tảng mở cho phép người dân định vị GPS, xem bản đồ trực tiếp ngay trong biểu mẫu báo cáo, gửi ảnh thực tế và kết nối mạng lưới tình nguyện viên làm sạch trên khắp Việt Nam.
+              Quy trình tiếp nhận báo cáo điểm rác hai bước: Báo cáo gửi về Gmail <strong>{ADMIN_EMAIL}</strong> ở trạng thái <span className="text-amber-400 font-semibold">Chờ xác nhận</span>. Khi ban điều phối bấm <span className="text-teal-300 font-semibold">Xác nhận có rác</span>, điểm sẽ chính thức lưu lên trang web và hiển thị trạng thái <span className="text-sky-400 font-semibold">Trong quá trình xử lý</span>.
             </p>
           </div>
 
-          <a
-            href="https://www.openstreetmap.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="self-start md:self-auto px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-emerald-500/60 text-xs text-zinc-300 hover:text-emerald-400 transition-all flex items-center gap-2 shadow-sm flex-shrink-0"
-            title="Truy cập kho dữ liệu địa lý mở OpenStreetMap"
-          >
-            <span>Dữ liệu nền OpenStreetMap</span>
-            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-          </a>
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+            <span className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5 text-rose-400" />
+              <span>Admin: <strong className="text-white font-mono">{ADMIN_EMAIL}</strong></span>
+            </span>
+          </div>
         </div>
 
-        {/* 1. Mạch hoạt động của tính năng (Visual Workflow Banner) */}
-        <div className="mb-12 bg-zinc-900/90 rounded-2xl border border-zinc-800 p-6 backdrop-blur-md shadow-xl">
-          <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Quy trình Xử lý Điểm rác từ Báo cáo đến Dọn dẹp sạch sẽ</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                1
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white mb-1">Chụp ảnh &amp; Định vị GPS</h4>
-                <p className="text-[11px] text-zinc-400">Người dân phát hiện điểm rác, xem bản đồ và lấy tọa độ GPS.</p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                2
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white mb-1">Gửi Form Báo Cáo trên Web</h4>
-                <p className="text-[11px] text-zinc-400">Tải ảnh hiện trường, chọn ghim trên bản đồ và lưu hệ thống.</p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                3
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white mb-1">Duyệt &amp; Ghim Marker Bản đồ</h4>
-                <p className="text-[11px] text-zinc-400">Hiển thị trực quan theo màu đỏ, vàng, xanh trên bản đồ toàn quốc.</p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-zinc-950/70 border border-zinc-800/80 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                4
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white mb-1">Tình nguyện viên Dọn dẹp</h4>
-                <p className="text-[11px] text-zinc-400">Cộng đồng bấm đăng ký tham gia dọn dẹp và cập nhật trạng thái sạch.</p>
-              </div>
+        {/* Global Feedback Banner */}
+        {verificationFeedback && (
+          <div className="mb-6 p-4 rounded-2xl bg-teal-950/90 border border-teal-500/60 text-teal-200 text-xs flex items-center gap-3 animate-fadeIn shadow-xl">
+            <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0" />
+            <div className="leading-relaxed">
+              <strong className="text-white block font-bold">Xác nhận thành công!</strong>
+              <span>{verificationFeedback}</span>
             </div>
           </div>
+        )}
+
+        {/* 1. KHU VỰC CHỜ XÁC NHẬN (PENDING VERIFICATION PORTAL) */}
+        <div className="mb-8 bg-zinc-900/90 rounded-2xl border border-amber-500/40 p-5 backdrop-blur-md shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <span>Trang Chờ Xác Nhận Điểm Rác Mới</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold animate-pulse">
+                    {pendingHotspots.length} điểm đang chờ
+                  </span>
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Các điểm rác do người dân gửi báo cáo, đã chuyển tiếp thông báo về Gmail: <strong className="text-zinc-300 font-mono">{ADMIN_EMAIL}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-amber-300 bg-amber-950/60 px-3 py-1 rounded-xl border border-amber-500/30 flex items-center gap-1.5 self-start sm:self-auto">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Chỉ quản trị viên hoặc Gmail {ADMIN_EMAIL} duyệt mới lưu lên web</span>
+            </div>
+          </div>
+
+          {/* Pending List Cards */}
+          {pendingHotspots.length === 0 ? (
+            <div className="py-6 text-center text-xs text-zinc-500">
+              Hiện không có điểm rác nào đang chờ xác nhận. Mọi báo cáo mới sẽ xuất hiện tại đây!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {pendingHotspots.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-xl bg-zinc-950/80 border border-amber-500/30 flex flex-col justify-between hover:border-amber-500/60 transition-all shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 border border-amber-500/40 text-amber-300 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        <span>⏳ CHỜ XÁC NHẬN</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-500 font-mono">{item.reportedAt}</span>
+                    </div>
+
+                    <div className="flex items-start gap-3 mb-2.5">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="w-14 h-14 rounded-lg object-cover border border-zinc-700 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-white truncate">{item.title}</h4>
+                        <p className="text-[11px] text-zinc-400 truncate">📍 {item.locationName}</p>
+                        <p className="text-[10px] text-zinc-500 font-mono mt-0.5">Tọa độ: {item.lat}, {item.lng}</p>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-zinc-300 line-clamp-2 leading-relaxed mb-3">
+                      {item.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-zinc-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyHotspot(item.id)}
+                      className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 shadow-md flex items-center justify-center gap-1.5 transition-all hover:scale-105"
+                      title="Bấm để xác nhận có rác thực tế, lưu lên trang web và chuyển sang trạng thái Trong quá trình xử lý"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Xác nhận có rác</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRejectHotspot(item.id)}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 border border-zinc-700 hover:border-rose-500/50 transition-colors"
+                      title="Từ chối hoặc xóa báo cáo sai"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => panToHotspot(item)}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                      title="Xem vị trí trên bản đồ"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 2. Interactive Map Container & Form */}
@@ -676,7 +819,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
           {/* Main Map Column (7 cols) */}
           <div className="lg:col-span-7 flex flex-col gap-4">
             {/* Filter buttons & Map status bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800">
               <div className="flex items-center gap-1.5">
                 <Filter className="w-4 h-4 text-zinc-400" />
                 <span className="text-xs font-semibold text-zinc-300">Lọc Marker:</span>
@@ -691,31 +834,30 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  Tất cả ({hotspots.length})
+                  Tất cả ({hotspots.length + pendingHotspots.length})
                 </button>
 
                 <button
-                  onClick={() => setFilterSeverity('critical')}
+                  onClick={() => setFilterSeverity('in_progress')}
                   className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
-                    filterSeverity === 'critical'
-                      ? 'bg-rose-950/80 text-rose-300 border border-rose-500/50'
-                      : 'text-zinc-400 hover:text-rose-400'
+                    filterSeverity === 'in_progress'
+                      ? 'bg-sky-950/80 text-sky-300 border border-sky-500/50'
+                      : 'text-zinc-400 hover:text-sky-300'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  <span>🔴 Điểm đen ({hotspots.filter((h) => h.severity === 'critical').length})</span>
+                  <span>⚙️ Đang xử lý ({hotspots.filter((h) => h.status === 'in_progress' || h.statusText.includes('quá trình xử lý')).length})</span>
                 </button>
 
                 <button
-                  onClick={() => setFilterSeverity('moderate')}
+                  onClick={() => setFilterSeverity('pending')}
                   className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
-                    filterSeverity === 'moderate'
+                    filterSeverity === 'pending'
                       ? 'bg-amber-950/80 text-amber-300 border border-amber-500/50'
-                      : 'text-zinc-400 hover:text-amber-400'
+                      : 'text-zinc-400 hover:text-amber-300'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span>🟡 Trung bình ({hotspots.filter((h) => h.severity === 'moderate').length})</span>
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span>⏳ Chờ xác nhận ({pendingHotspots.length})</span>
                 </button>
 
                 <button
@@ -739,37 +881,15 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                     }
                   }}
                   className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-emerald-600 text-zinc-300 hover:text-white border border-zinc-700 transition-colors flex items-center gap-1.5 shadow-sm"
-                  title="Tải lại toàn bộ khung bản đồ và căn giữa"
+                  title="Căn giữa bản đồ Việt Nam"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Làm mới bản đồ</span>
+                  <span>Căn giữa</span>
                 </button>
-
-                <a
-                  href="https://www.google.com/maps/@15.8,107.5,6z"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-950/80 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 transition-colors flex items-center gap-1.5"
-                  title="Mở Google Maps toàn cảnh"
-                >
-                  <span>Google Maps</span>
-                  <ExternalLink className="w-3 h-3 text-blue-400" />
-                </a>
-
-                <a
-                  href="https://www.openstreetmap.org/#map=6/15.8/107.5"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-emerald-600 text-zinc-300 hover:text-white border border-zinc-700 transition-colors flex items-center gap-1.5"
-                  title="Mở toàn cảnh Việt Nam trên bản đồ mở OpenStreetMap"
-                >
-                  <span>OpenStreetMap</span>
-                  <ExternalLink className="w-3 h-3 text-emerald-400" />
-                </a>
               </div>
             </div>
 
-            {/* Map Theme / Layer Selection Bar */}
+            {/* Map Theme Selection Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-zinc-900/80 rounded-xl border border-zinc-800 text-xs">
               <div className="flex items-center gap-1.5 text-zinc-300 font-semibold">
                 <Layers className="w-3.5 h-3.5 text-emerald-400" />
@@ -779,24 +899,13 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setMapTheme('voyager')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                  className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
                     mapTheme === 'voyager'
-                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20'
-                      : 'text-zinc-300 hover:text-white bg-zinc-800/80'
+                      ? 'bg-emerald-600 text-white font-bold shadow'
+                      : 'text-zinc-400 hover:text-white bg-zinc-800/80'
                   }`}
                 >
-                  <span>☀️ Sáng Nét (100% Ổn định)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMapTheme('esri_streets')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                    mapTheme === 'esri_streets'
-                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20'
-                      : 'text-zinc-300 hover:text-white bg-zinc-800/80'
-                  }`}
-                >
-                  <span>🏙️ Đường Phố Esri</span>
+                  ☀️ Sáng (Mặc định)
                 </button>
                 <button
                   type="button"
@@ -831,17 +940,6 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                 >
                   🌙 Tối (Eco Dark)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setMapTheme('satellite')}
-                  className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
-                    mapTheme === 'satellite'
-                      ? 'bg-emerald-600 text-white font-bold shadow'
-                      : 'text-zinc-400 hover:text-white bg-zinc-800/80'
-                  }`}
-                >
-                  🛰️ Vệ Tinh Esri
-                </button>
               </div>
             </div>
 
@@ -849,22 +947,22 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
             <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl h-[480px] bg-zinc-900">
               <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-              {/* Map floating prompt */}
+              {/* Map prompt */}
               <div className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-lg bg-zinc-950/85 border border-zinc-800 text-[11px] text-zinc-300 backdrop-blur-md shadow-md flex items-center gap-1.5 pointer-events-none">
                 <Info className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Click lên bất kỳ vị trí nào trên bản đồ để chọn tọa độ</span>
+                <span>Click lên bản đồ để chọn tọa độ hoặc ghim vị trí điểm rác mới</span>
               </div>
 
               {/* City quick buttons on map */}
               <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1.5 overflow-x-auto pb-1 pointer-events-auto">
-                <span className="text-[10px] text-zinc-300 font-semibold px-2 py-1 rounded bg-zinc-950/90 border border-zinc-800 backdrop-blur-md flex-shrink-0">
+                <span className="text-[10px] text-zinc-300 font-semibold px-2 py-1 rounded bg-zinc-950/90 border border-zinc-800 backdrop-blur-md shrink-0">
                   Khu vực:
                 </span>
                 {CITY_PRESETS.map((city) => (
                   <button
                     key={city.name}
                     onClick={() => updatePinCoordinates(city.lat, city.lng, city.name)}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-zinc-900/90 hover:bg-emerald-600 text-zinc-300 hover:text-white border border-zinc-700/80 transition-all flex-shrink-0 backdrop-blur-md shadow-sm"
+                    className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-zinc-900/90 hover:bg-emerald-600 text-zinc-300 hover:text-white border border-zinc-700/80 transition-all shrink-0 backdrop-blur-md shadow-sm"
                   >
                     {city.name}
                   </button>
@@ -879,74 +977,80 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                   <img
                     src={selectedHotspot.imageUrl}
                     alt={selectedHotspot.title}
-                    className="w-14 h-14 rounded-xl object-cover border border-zinc-700 flex-shrink-0"
+                    className="w-16 h-16 rounded-xl object-cover border border-zinc-700 shrink-0"
                   />
                   <div>
-                    <h4 className="text-sm font-bold text-white">{selectedHotspot.title}</h4>
+                    <div className="flex items-center gap-2 mb-1">
+                      {selectedHotspot.isPendingVerification ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 border border-amber-500/50 text-amber-300">
+                          ⏳ CHỜ XÁC NHẬN
+                        </span>
+                      ) : selectedHotspot.status === 'in_progress' || selectedHotspot.statusText.includes('quá trình xử lý') ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-950 border border-sky-500/50 text-sky-300">
+                          ⚙️ TRONG QUÁ TRÌNH XỬ LÝ
+                        </span>
+                      ) : null}
+                      <h4 className="text-sm font-bold text-white">{selectedHotspot.title}</h4>
+                    </div>
+
                     <p className="text-xs text-zinc-400">📍 {selectedHotspot.locationName}</p>
-                    <span
-                      className={`text-[10px] font-semibold ${
-                        selectedHotspot.severity === 'critical'
-                          ? 'text-rose-400'
-                          : selectedHotspot.severity === 'moderate'
-                          ? 'text-amber-400'
-                          : 'text-emerald-400'
-                      }`}
-                    >
+                    <span className="text-[11px] text-zinc-300 block mt-0.5 font-medium">
                       {selectedHotspot.statusText}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => handleToggleUpvote(selectedHotspot.id)}
-                    className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                      selectedHotspot.hasUpvoted
-                        ? 'bg-rose-950/80 text-rose-400 border-rose-500/60'
-                        : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
-                    }`}
-                  >
-                    <Heart
-                      className={`w-3.5 h-3.5 ${
-                        selectedHotspot.hasUpvoted ? 'fill-rose-500 text-rose-500' : ''
-                      }`}
-                    />
-                    <span>{selectedHotspot.upvotes}</span>
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  {selectedHotspot.isPendingVerification ? (
+                    <button
+                      onClick={() => handleVerifyHotspot(selectedHotspot.id)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md flex items-center gap-1.5 transition-all hover:scale-105"
+                      title="Xác nhận có rác thực tế để chuyển sang trạng thái Trong quá trình xử lý"
+                    >
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>Xác nhận có rác</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleToggleUpvote(selectedHotspot.id)}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                          selectedHotspot.hasUpvoted
+                            ? 'bg-rose-950/80 text-rose-400 border-rose-500/60'
+                            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
+                        }`}
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 ${
+                            selectedHotspot.hasUpvoted ? 'fill-rose-500 text-rose-500' : ''
+                          }`}
+                        />
+                        <span>{selectedHotspot.upvotes}</span>
+                      </button>
 
-                  <button
-                    onClick={() => setActivityDetailHotspot(selectedHotspot)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 transition-all shadow-sm"
-                    title="Xem chi tiết hoạt động dọn dẹp"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Chi tiết dọn dẹp</span>
-                  </button>
+                      <button
+                        onClick={() => setActivityDetailHotspot(selectedHotspot)}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/40 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Kế hoạch dọn</span>
+                      </button>
 
-                  <a
-                    href={`https://www.openstreetmap.org/?mlat=${selectedHotspot.lat}&mlon=${selectedHotspot.lng}#map=16/${selectedHotspot.lat}/${selectedHotspot.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 transition-colors"
-                    title="Mở tọa độ trên OpenStreetMap"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-                  </a>
-
-                  <button
-                    onClick={() => setVolunteerModalHotspot(selectedHotspot)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md transition-all"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Đăng ký dọn dẹp</span>
-                  </button>
+                      <button
+                        onClick={() => setVolunteerModalHotspot(selectedHotspot)}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md transition-all"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Đăng ký tham gia</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Crowdsourcing Report Form Column (5 cols) WITH INTEGRATED FORM MAP */}
+          {/* Crowdsourcing Report Form Column (5 cols) */}
           <div className="lg:col-span-5">
             <div className="bg-zinc-900/95 rounded-2xl border border-zinc-800 p-6 backdrop-blur-md shadow-2xl">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
@@ -956,15 +1060,18 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">Biểu mẫu Đóng góp Điểm rác</h3>
-                    <p className="text-xs text-emerald-400">Bản đồ định vị trực quan ngay trong form</p>
+                    <p className="text-xs text-amber-400">Gửi duyệt về Gmail {ADMIN_EMAIL}</p>
                   </div>
                 </div>
               </div>
 
               {showSuccessToast && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
-                  <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  <span>Báo cáo đã gửi thành công! Marker mới đã hiển thị trên bản đồ.</span>
+                <div className="mb-4 p-3.5 rounded-xl bg-amber-950/80 border border-amber-500/60 text-amber-200 text-xs flex items-start gap-2.5 animate-fadeIn shadow-lg">
+                  <CheckCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="leading-snug">
+                    <strong className="text-white block font-bold mb-0.5">Báo cáo đã tiếp nhận!</strong>
+                    <span>{toastMessage}</span>
+                  </div>
                 </div>
               )}
 
@@ -977,7 +1084,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="Ví dụ: Cống xả rác bãi bồi ven sông..."
+                    placeholder="Ví dụ: Chân cầu Tham Lương, Kênh Lương, Quận Tân Bình..."
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -998,65 +1105,39 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                       className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium transition-colors bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30"
                     >
                       <Navigation className={`w-3 h-3 ${gpsLoading ? 'animate-spin' : ''}`} />
-                      <span>{gpsLoading ? 'Đang dò...' : 'Lấy GPS tự động'}</span>
+                      <span>{gpsLoading ? 'Đang định vị...' : 'GPS tự động'}</span>
                     </button>
                   </div>
 
                   <input
                     type="text"
                     required
-                    placeholder="Quận/Huyện, Tỉnh thành hoặc tên đường..."
                     value={formLocation}
                     onChange={(e) => setFormLocation(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors mb-2"
+                    placeholder="Vị trí chi tiết..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder:text-zinc-500 mb-2 focus:outline-none focus:border-emerald-500"
                   />
 
-                  {/* VISUAL EMBEDDED MAP DIRECTLY IN THE REPORT FORM */}
-                  <div className="relative rounded-xl overflow-hidden border border-zinc-700 bg-zinc-950 shadow-inner">
-                    <div
-                      ref={formMapContainerRef}
-                      className="w-full h-44 z-0"
-                      style={{ minHeight: '176px' }}
-                    />
-                    <div className="absolute top-2 left-2 z-10 px-2.5 py-1 rounded bg-zinc-950/85 border border-zinc-800 text-[10px] text-zinc-300 backdrop-blur-md pointer-events-none flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-rose-500" />
-                      <span>Kéo thả ghim hoặc click trên bản đồ này</span>
-                    </div>
-                    <div className="absolute bottom-2 right-2 z-10 px-2 py-0.5 rounded bg-zinc-950/90 text-[10px] text-emerald-400 font-mono border border-zinc-800">
-                      {formLat}, {formLng}
+                  {/* MINI-MAP IN FORM */}
+                  <div className="relative rounded-xl overflow-hidden border border-zinc-700 h-36 bg-zinc-950 mb-2">
+                    <div ref={formMapContainerRef} className="w-full h-full z-0" />
+                    <div className="absolute bottom-1.5 left-1.5 z-10 px-2 py-0.5 rounded bg-zinc-950/90 text-[10px] text-zinc-300 border border-zinc-800">
+                      Kéo thả ghim đỏ 📍 để chỉnh vị trí
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1.5 px-0.5">
-                    <span>Kéo thả ghim để chọn tọa độ chính xác</span>
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${formLat},${formLng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 font-semibold inline-flex items-center gap-1 hover:underline"
-                      >
-                        <span>Google Maps</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                      <span>·</span>
-                      <a
-                        href={`https://www.openstreetmap.org/?mlat=${formLat}&mlon=${formLng}#map=16/${formLat}/${formLng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1 hover:underline"
-                      >
-                        <span>OSM</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-zinc-950/60 px-3 py-1.5 rounded-lg border border-zinc-800/80">
+                    <span>Tọa độ ghim:</span>
+                    <strong className="text-emerald-400 font-mono">
+                      {formLat}, {formLng}
+                    </strong>
                   </div>
                 </div>
 
                 {/* 2. Mức độ ô nhiễm */}
                 <div>
                   <label className="block font-semibold text-zinc-300 mb-1.5">
-                    2. Mức độ ô nhiễm &amp; Quy mô rác thải *
+                    2. Mức độ ô nhiễm rác thải nhựa
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
@@ -1107,7 +1188,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                 {/* 3. Tải lên hình ảnh */}
                 <div>
                   <label className="block font-semibold text-zinc-300 mb-1.5">
-                    3. Hình ảnh chụp thực tế từ thiết bị *
+                    3. Hình ảnh chụp thực tế từ hiện trường *
                   </label>
                   <div className="flex items-center gap-3">
                     <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 p-3 rounded-xl bg-zinc-950 border border-dashed border-zinc-700 hover:border-emerald-500 transition-colors text-zinc-400 hover:text-zinc-200">
@@ -1124,7 +1205,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
 
                     {/* Preview Thumbnail */}
                     {formImage && (
-                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-zinc-700 flex-shrink-0">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-zinc-700 shrink-0">
                         <img
                           src={formImage}
                           alt="Preview"
@@ -1138,83 +1219,91 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                 {/* 4. Mô tả ngắn */}
                 <div>
                   <label className="block font-semibold text-zinc-300 mb-1">
-                    4. Mô tả ngắn về hiện trạng rác *
+                    4. Mô tả hiện trạng rác thải nhựa *
                   </label>
                   <textarea
                     required
                     rows={2}
-                    placeholder="Ví dụ: Rác nhựa tràn lấp lòng kênh, bao bì chai lọ vỡ vụn gây tắc dòng chảy và bốc mùi..."
+                    placeholder="Ví dụ: Rác thải nhựa, túi nilon, hộp xốp dồn ứ chân cầu, gây nghẹt dòng chảy và bốc mùi..."
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
                   />
                 </div>
 
-                {showSuccessToast && (
-                  <div className="p-3.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-xs text-emerald-200 flex items-start gap-2 animate-fadeIn shadow-lg">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-white">Báo cáo thành công!</p>
-                      <p className="text-[11px] text-zinc-300">Điểm rác đã ghim lên bản đồ và gửi thông tin về email ban điều phối: <strong>26162120@student.hcmute.edu.vn</strong></p>
-                    </div>
+                {/* Target email note */}
+                <div className="p-3 rounded-xl bg-amber-950/50 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-2">
+                  <Mail className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="leading-snug">
+                    <span>Báo cáo sẽ được gửi về Gmail xác thực: </span>
+                    <strong className="text-white font-mono">{ADMIN_EMAIL}</strong>.
+                    <span className="block text-zinc-400 mt-0.5">
+                      Sau khi xác nhận có rác, điểm sẽ lưu chính thức lên web với trạng thái &quot;Trong quá trình xử lý&quot;.
+                    </span>
                   </div>
-                )}
-
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Dữ liệu báo cáo sẽ được tiếp nhận và gửi về: <strong className="text-zinc-300">26162120@student.hcmute.edu.vn</strong></span>
                 </div>
 
                 {/* Submit button */}
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-500 hover:from-amber-400 hover:to-teal-400 text-zinc-950 shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Gửi Báo Cáo Lên Bản Đồ &amp; Email</span>
+                  <span>Gửi Báo Cáo Chờ Xác Nhận</span>
                 </button>
               </form>
             </div>
           </div>
         </div>
 
-        {/* 3. Danh sách phản hồi & Trạng thái dọn dẹp (Real-time Community Feed) */}
+        {/* 3. Danh sách Điểm Rác Thực Tế & Đang Xử Lý (Community Feed) */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <span>Danh sách Phản hồi &amp; Trạng thái Dọn dẹp Thực tế</span>
+                <span>Danh Sách Điểm Đen Rác Thải &amp; Đang Xử Lý</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Thời gian thực
                 </span>
               </h3>
               <p className="text-xs text-zinc-400">
-                Bấm vào thẻ để định vị trên bản đồ, thả tim xác nhận hoặc đăng ký gia nhập đội tình nguyện viên
+                Các điểm rác đã được xác nhận thực tế và đang trong quá trình phối hợp xử lý, ra quân dọn sạch
               </p>
             </div>
+
+            {onNavigateToRegistry && (
+              <button
+                onClick={onNavigateToRegistry}
+                className="self-start sm:self-auto px-4 py-2 rounded-xl text-xs font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 hover:text-white transition-all flex items-center gap-2 shadow-sm"
+              >
+                <UserPlus className="w-4 h-4 text-emerald-400" />
+                <span>Xem Trang Tổng Hợp Người Đã Đăng Ký Dọn Rác ↗</span>
+              </button>
+            )}
           </div>
 
           {/* Cards Feed Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHotspots.map((item) => {
+            {displayedHotspots.map((item) => {
               const isSelected = selectedHotspot?.id === item.id;
-              const severityColor =
-                item.severity === 'critical'
-                  ? 'border-rose-500/60 bg-rose-950/20 text-rose-400'
-                  : item.severity === 'moderate'
-                  ? 'border-amber-500/60 bg-amber-950/20 text-amber-400'
-                  : 'border-emerald-500/60 bg-emerald-950/20 text-emerald-400';
+              const isPending = item.isPendingVerification === true;
+              const isInProgress =
+                item.status === 'in_progress' || item.statusText.includes('quá trình xử lý');
 
               return (
                 <div
                   key={item.id}
                   onClick={() => {
                     panToHotspot(item);
-                    setActivityDetailHotspot(item);
+                    if (!isPending) setActivityDetailHotspot(item);
                   }}
                   className={`bg-zinc-900/80 rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 cursor-pointer hover:-translate-y-1 group ${
                     isSelected
                       ? 'border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.2)] bg-zinc-900'
+                      : isPending
+                      ? 'border-amber-500/50 hover:border-amber-400'
+                      : isInProgress
+                      ? 'border-sky-500/50 hover:border-sky-400'
                       : 'border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
@@ -1227,24 +1316,29 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
-                      <div className={`absolute top-2.5 left-2.5 px-2.5 py-1 rounded-md text-[11px] font-bold border backdrop-blur-md shadow-md ${severityColor}`}>
-                        {item.severity === 'critical' && '🔴 Điểm đen lớn'}
-                        {item.severity === 'moderate' && '🟡 Ô nhiễm trung bình'}
-                        {item.severity === 'cleaned' && '🟢 Đã dọn dẹp'}
+
+                      {/* Prominent Status Badge */}
+                      <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-md text-[11px] font-bold border backdrop-blur-md shadow-md">
+                        {isPending ? (
+                          <span className="text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-500/50">
+                            ⏳ Chờ xác nhận
+                          </span>
+                        ) : isInProgress ? (
+                          <span className="text-sky-300 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-500/50">
+                            ⚙️ Trong quá trình xử lý
+                          </span>
+                        ) : item.severity === 'cleaned' ? (
+                          <span className="text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/50">
+                            🟢 Đã dọn dẹp
+                          </span>
+                        ) : (
+                          <span className="text-rose-300 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-500/50">
+                            🔴 Điểm đen rác lớn
+                          </span>
+                        )}
                       </div>
 
                       <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-                        <a
-                          href={`https://www.openstreetmap.org/?mlat=${item.lat}&mlon=${item.lng}#map=16/${item.lat}/${item.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-2 py-0.5 rounded bg-zinc-950/90 hover:bg-emerald-600 text-[10px] text-zinc-300 hover:text-white transition-colors border border-zinc-700/80 flex items-center gap-1 backdrop-blur-sm shadow"
-                          title="Mở tọa độ trên OpenStreetMap"
-                        >
-                          <span>OSM</span>
-                          <ExternalLink className="w-2.5 h-2.5 text-emerald-400" />
-                        </a>
                         <span className="px-2 py-0.5 rounded bg-zinc-950/85 text-[10px] text-zinc-300 backdrop-blur-sm border border-zinc-800">
                           {item.reportedAt}
                         </span>
@@ -1256,7 +1350,7 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                     </h4>
 
                     <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-2">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                       <span className="truncate">{item.locationName}</span>
                     </div>
 
@@ -1264,78 +1358,98 @@ const CrowdsourcedMapSection: React.FC<CrowdsourcedMapSectionProps> = ({
                       {item.description}
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        panToHotspot(item);
-                        setActivityDetailHotspot(item);
-                      }}
-                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-950/90 via-zinc-900 to-teal-950/90 hover:from-emerald-900 hover:to-teal-900 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm my-2.5 group/btn"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover/btn:scale-110 transition-transform" />
-                      <span>Xem chi tiết kế hoạch dọn dẹp</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                    </button>
+                    {item.verifiedBy && (
+                      <div className="mb-2.5 px-2.5 py-1 rounded-lg bg-sky-950/50 border border-sky-500/30 text-[10px] text-sky-200 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3 h-3 text-sky-400 shrink-0" />
+                        <span>Xác nhận bởi: <strong className="font-mono">{item.verifiedBy}</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-3 border-t border-zinc-800">
-                    {/* Volunteer Progress Bar */}
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between text-[11px] mb-1">
-                        <span className="text-zinc-400">Lực lượng dọn dẹp:</span>
-                        <span className="font-semibold text-emerald-400">
-                          {item.volunteersJoined} / {item.volunteersNeeded} người
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                        <div
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              (item.volunteersJoined / item.volunteersNeeded) * 100
-                            )}%`
+                    {isPending ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleVerifyHotspot(item.id);
                           }}
-                          className={`h-full rounded-full transition-all ${
-                            item.severity === 'cleaned' ? 'bg-emerald-400' : 'bg-teal-500'
-                          }`}
-                        />
+                          className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 flex items-center justify-center gap-1.5 shadow"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Xác nhận có rác</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectHotspot(item.id);
+                          }}
+                          className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-rose-400 border border-zinc-700"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        {/* Progress */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-[11px] mb-1">
+                            <span className="text-zinc-400">Lực lượng dọn dẹp:</span>
+                            <span className="font-semibold text-emerald-400">
+                              {item.volunteersJoined} / {item.volunteersNeeded} người
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  (item.volunteersJoined / item.volunteersNeeded) * 100
+                                )}%`
+                              }}
+                              className={`h-full rounded-full transition-all ${
+                                item.severity === 'cleaned' ? 'bg-emerald-400' : 'bg-teal-500'
+                              }`}
+                            />
+                          </div>
+                        </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleUpvote(item.id);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                          item.hasUpvoted
-                            ? 'bg-rose-950/80 text-rose-400 border-rose-500/60'
-                            : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
-                        }`}
-                        title="Tôi cũng thấy điểm này"
-                      >
-                        <Heart
-                          className={`w-3.5 h-3.5 ${
-                            item.hasUpvoted ? 'fill-rose-500 text-rose-500' : ''
-                          }`}
-                        />
-                        <span>{item.upvotes}</span>
-                      </button>
+                        {/* Actions */}
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleUpvote(item.id);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              item.hasUpvoted
+                                ? 'bg-rose-950/80 text-rose-400 border-rose-500/60'
+                                : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:text-white'
+                            }`}
+                          >
+                            <Heart
+                              className={`w-3.5 h-3.5 ${
+                                item.hasUpvoted ? 'fill-rose-500 text-rose-500' : ''
+                              }`}
+                            />
+                            <span>{item.upvotes}</span>
+                          </button>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setVolunteerModalHotspot(item);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition-colors shadow"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Đăng ký tham gia</span>
-                      </button>
-                    </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVolunteerModalHotspot(item);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition-colors shadow"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Đăng ký tham gia</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

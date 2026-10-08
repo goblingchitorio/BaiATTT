@@ -1,6 +1,9 @@
 import React from 'react';
 import { Leaf, Heart, Globe, Shield, ExternalLink } from 'lucide-react';
+import { Facebook } from './FacebookIcon';
 import { TEAM_MEMBERS } from '../data/environmentalData';
+
+const FANPAGE_URL = 'https://www.facebook.com/profile.php?id=61594950100287';
 
 const Footer: React.FC = () => {
   const scrollTo = (id: string) => {
@@ -34,9 +37,21 @@ const Footer: React.FC = () => {
               Dự án nghiên cứu thực trạng và số hóa dữ liệu địa điểm ô nhiễm rác thải nhựa tại Việt Nam. Khuyến khích lối sống 3R, nâng cao nhận thức cộng đồng và kết nối các chiến dịch tình nguyện dọn sạch đại dương.
             </p>
 
-            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-              <Shield className="w-4 h-4" />
-              <span>Sáng kiến Thanh niên Vì Môi trường</span>
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <Shield className="w-4 h-4" />
+                <span>Sáng kiến Thanh niên Vì Môi trường</span>
+              </div>
+              <a
+                href={FANPAGE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-semibold hover:bg-blue-600/30 hover:text-white transition-all w-fit"
+              >
+                <Facebook className="w-3.5 h-3.5 fill-blue-400 text-blue-400" />
+                <span>Fanpage Facebook GenGreen</span>
+                <ExternalLink className="w-3 h-3 text-blue-400" />
+              </a>
             </div>
           </div>
 
@@ -93,6 +108,24 @@ const Footer: React.FC = () => {
                 >
                   Phần 4: Bản đồ Điểm đen Rác thải Cộng đồng
                 </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => scrollTo('fanpage')}
+                  className="hover:text-blue-400 transition-colors flex items-center gap-1.5"
+                >
+                  <Facebook className="w-3.5 h-3.5 text-blue-400 fill-blue-500" />
+                  <span>Phần 5: Fanpage Facebook GenGreen</span>
+                </button>
+              </li>
+              <li>
+                <a
+                  href="#/volunteers"
+                  className="hover:text-emerald-400 transition-colors text-emerald-400 font-semibold flex items-center gap-1"
+                >
+                  <span>📋 Trang tổng hợp tình nguyện viên</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">Mới</span>
+                </a>
               </li>
             </ul>
           </div>

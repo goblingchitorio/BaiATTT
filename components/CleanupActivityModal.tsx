@@ -334,38 +334,77 @@ const CleanupActivityModal: React.FC<CleanupActivityModalProps> = ({
             <div className="space-y-3 animate-fadeIn">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-300 font-medium">
-                  Bản đồ vệ tinh &amp; địa hình từ nền tảng <strong>OpenStreetMap (OSM)</strong>
+                  Bản đồ vị trí chi tiết từ <strong>OpenStreetMap (OSM) &amp; Vệ Tinh</strong>
                 </span>
-                <a
-                  href={osmUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 hover:underline"
-                >
-                  <span>Mở toàn màn hình OSM</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${hotspot.lat},${hotspot.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 hover:underline"
+                  >
+                    <span>Google Maps</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <span className="text-zinc-600">·</span>
+                  <a
+                    href={osmUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 hover:underline"
+                  >
+                    <span>Mở toàn màn hình OSM</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
 
-              <div className="w-full h-64 rounded-xl overflow-hidden border border-zinc-800 relative bg-zinc-950">
+              {/* High visibility interactive map container */}
+              <div className="w-full h-80 rounded-2xl overflow-hidden border-2 border-emerald-500/50 relative bg-zinc-950 shadow-inner group">
                 <iframe
-                  title="OpenStreetMap Embed"
-                  className="w-full h-full border-0"
-                  src={osmEmbedUrl}
-                  loading="lazy"
+                  title={`Bản đồ chi tiết điểm rác: ${hotspot.title}`}
+                  className="w-full h-full border-0 filter contrast-105"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${hotspot.lng - 0.008}%2C${hotspot.lat - 0.006}%2C${hotspot.lng + 0.008}%2C${hotspot.lat + 0.006}&layer=mapnik&marker=${hotspot.lat}%2C${hotspot.lng}`}
+                  loading="eager"
                 />
+
+                {/* Pin indicator overlay */}
+                <div className="absolute top-3 left-3 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-emerald-500/60 backdrop-blur-md text-[11px] text-white flex items-center gap-2 shadow-lg pointer-events-none">
+                  <MapPin className="w-4 h-4 text-rose-500 animate-bounce" />
+                  <span className="font-semibold">{hotspot.title}</span>
+                  <span className="font-mono text-emerald-400">({hotspot.lat}, {hotspot.lng})</span>
+                </div>
+
+                {/* Map type & direct navigation bar overlay */}
+                <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${hotspot.lat},${hotspot.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Lộ trình tới đây</span>
+                  </a>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                <span>Dữ liệu bản đồ &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">OpenStreetMap contributors</a></span>
-                <a
-                  href={osmUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-teal-400 hover:underline font-medium"
-                >
-                  Xem lộ trình đến điểm này ↗
-                </a>
+              <div className="flex flex-wrap items-center justify-between text-[11px] text-zinc-400 bg-zinc-950/60 p-2.5 rounded-xl border border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Bản đồ vector định vị chính xác với độ phóng đại 16x</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span>Dữ liệu bản đồ &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">OpenStreetMap contributors</a></span>
+                  <a
+                    href={osmUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-teal-400 hover:underline font-medium"
+                  >
+                    Xem lớp giao thông &amp; địa hình ↗
+                  </a>
+                </div>
               </div>
             </div>
           )}

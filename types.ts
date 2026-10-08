@@ -16,7 +16,7 @@ export interface GalleryItem {
   location: string;
   imageUrl: string;
   caption: string;
-  source: 'WWF' | 'UNEP' | 'Bộ TN&MT' | 'Báo Tuổi Trẻ' | 'GreenHub';
+  source: string;
   sourceUrl: string;
   category: 'Đại dương' | 'Đô thị' | 'Kênh rạch' | 'Sinh thái';
   year: number;
@@ -74,15 +74,37 @@ export interface WasteHotspot {
   volunteersNeeded: number;
   volunteersJoined: number;
   statusText: string;
+  status?: 'pending_verification' | 'in_progress' | 'critical' | 'moderate' | 'cleaned';
+  isPendingVerification?: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  verificationNote?: string;
   cleanupDetails?: CleanupDetails;
 }
 
+export interface DailyPlasticNewsItem {
+  id: string;
+  title: string;
+  district: string;
+  summary: string;
+  wasteTonsToday: number;
+  status: 'critical' | 'warning' | 'improving' | 'normal';
+  timestamp: string;
+  source: string;
+  sourceUrl: string;
+  actionRequired: string;
+}
+
 export interface VolunteerFormData {
+  id?: string;
   hotspotId: string;
   hotspotTitle: string;
+  hotspotLocation?: string;
   fullName: string;
   phone: string;
   email: string;
   availableDate: string;
   notes: string;
+  createdAt?: string;
+  status?: 'confirmed' | 'pending' | 'completed';
 }

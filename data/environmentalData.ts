@@ -1,4 +1,4 @@
-import { TeamMember, GalleryItem, BeforeAfterItem, SolutionItem, WasteHotspot } from '../types';
+import { TeamMember, GalleryItem, BeforeAfterItem, SolutionItem, WasteHotspot, DailyPlasticNewsItem } from '../types';
 
 export const TEAM_MEMBERS: TeamMember[] = [
   {
@@ -90,7 +90,7 @@ export const BEFORE_AFTER_CASES: BeforeAfterItem[] = [
     beforeLabel: 'Từng nghẹt rác nilon & ô nhiễm đen kịt',
     afterLabel: 'Dòng kênh xanh sạch sau phong trào làm sạch và lắp phao chặn rác',
     description: 'Từ một "dòng kênh chết" ngập chìm trong hàng tấn rác nhựa trôi nổi mỗi ngày, chiến dịch nạo vét kết hợp hệ thống phao chắn lọc rác tự động đã phục hồi lại cảnh quan xanh hai bên bờ.',
-    source: 'Bộ TN&MT & UBND TP.HCM',
+    source: 'Báo Tuổi Trẻ & UBND TP.HCM',
     sourceUrl: 'https://tuoitre.vn/hoi-sinh-kenh-nhieu-loc-thi-nghe-20230605085023964.htm'
   },
   {
@@ -102,8 +102,8 @@ export const BEFORE_AFTER_CASES: BeforeAfterItem[] = [
     beforeLabel: 'Ngập tràn phao xốp, chai nhựa & lưới rách',
     afterLabel: 'Bờ cát trắng nguyên sơ được trả lại cho du khách',
     description: 'Chiến dịch Clean Up Danang quy tụ hơn 500 bạn trẻ và ngư dân bản địa đã thu gom hơn 4.2 tấn rác nhựa trôi dạt sau mùa mưa bão chỉ trong vòng một ngày cuối tuần.',
-    source: 'WWF Vietnam & Clean Up Vietnam',
-    sourceUrl: 'https://wwf.org.vn/tin-tuc/tin-moi/chien-dich-lam-sach-bien-da-nang'
+    source: 'Báo Tuổi Trẻ Môi Trường',
+    sourceUrl: 'https://tuoitre.vn/moi-truong.htm'
   }
 ];
 
@@ -114,19 +114,19 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     location: 'Vùng biển nhiệt đới Đông Nam Á',
     imageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1000&q=80',
     caption: 'Hơn 1 triệu cá thể chim biển và 100,000 động vật biển có vú tử vong mỗi năm do nuốt phải hoặc vướng vào rác thải nhựa đại dương.',
-    source: 'WWF',
-    sourceUrl: 'https://www.worldwildlife.org/threats/plastic-pollution',
+    source: 'UNEP',
+    sourceUrl: 'https://www.unep.org/interactives/beat-plastic-pollution/',
     category: 'Đại dương',
     year: 2024
   },
   {
     id: 'gal-2',
     title: 'Cửa xả rác thải nhựa tại các đô thị ven sông',
-    location: 'Lưu vực sông Hồng, miền Bắc',
+    location: 'Lưu vực sông ngòi đô thị Việt Nam',
     imageUrl: 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=1000&q=80',
     caption: 'Túi nilon và đồ nhựa dùng một lần chiếm tới hơn 68% tổng khối lượng rác thải rắn thu gom tại các cửa cống xả đô thị.',
-    source: 'Bộ TN&MT',
-    sourceUrl: 'https://monre.gov.vn/Pages/thuc-trang-rac-thai-nhua-tai-viet-nam.aspx',
+    source: 'Báo Tuổi Trẻ',
+    sourceUrl: 'https://tuoitre.vn/moi-truong.htm',
     category: 'Đô thị',
     year: 2025
   },
@@ -147,8 +147,8 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     location: 'Vùng đệm ven biển duyên hải miền Trung',
     imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=1000&q=80',
     caption: 'Các bãi tập kết rác không phép đối mặt nguy cơ bị triều cường cuốn thẳng hàng chục tấn rác nhựa ra biển khơi.',
-    source: 'GreenHub',
-    sourceUrl: 'https://greenhub.org.vn/bao-cao-hien-trang-rac-thai-nhua-ven-bien/',
+    source: 'Báo Lao Động Môi Trường',
+    sourceUrl: 'https://laodong.vn/moi-truong',
     category: 'Kênh rạch',
     year: 2024
   },
@@ -158,8 +158,8 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     location: 'Khu bảo tồn biển Cù Lao Chàm, Quảng Nam',
     imageUrl: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
     caption: 'Thợ lặn tình nguyện cắt bỏ lưới ma (ghost nets) và bao bì bám chặt làm ngạt thở các rạn san hô quý hiếm.',
-    source: 'WWF',
-    sourceUrl: 'https://wwf.org.vn/cac-chuong-trinh/bao-ton-bien-va-hai-dao',
+    source: 'Báo Tuổi Trẻ',
+    sourceUrl: 'https://tuoitre.vn/moi-truong.htm',
     category: 'Đại dương',
     year: 2025
   },
@@ -169,49 +169,56 @@ export const GALLERY_ITEMS: GalleryItem[] = [
     location: 'Hội An, Quảng Nam',
     imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1000&q=80',
     caption: 'Người dân và tiểu thương dùng lá chuối, làn mây tre và hộp thủy tinh tái sử dụng thay thế 100% túi nilon dùng một lần.',
-    source: 'Bộ TN&MT',
-    sourceUrl: 'https://monre.gov.vn/Pages/mo-hinh-cho-dan-sinh-giam-tui-nilon-tai-hoi-an.aspx',
+    source: 'Báo Lao Động Môi Trường',
+    sourceUrl: 'https://laodong.vn/moi-truong',
     category: 'Đô thị',
     year: 2025
   }
 ];
 
 export const AUTHORITATIVE_SOURCES = {
+  surveyResponses: {
+    title: 'Khảo sát Thực tế Rác thải Nhựa TP.HCM (Biểu mẫu Nghiên cứu Google Form)',
+    organization: 'Dự án GENGREEN - Sinh viên HCMUTE',
+    url: 'https://docs.google.com/forms/d/1liH0c9Ow4mi87yHKe66NZnTZQaaKXE0UHSzVffSdIyw/viewform',
+    editUrl: 'https://docs.google.com/forms/d/1liH0c9Ow4mi87yHKe66NZnTZQaaKXE0UHSzVffSdIyw/edit?ts=6ac653e8#responses',
+    description: 'Dữ liệu khảo sát người dân, sinh viên và học sinh TP.HCM về mức độ ô nhiễm, phân loại rác và ý thức tình nguyện.'
+  },
   globalWaste: {
     title: 'UNEP - Beat Plastic Pollution Interactive Report',
-    organization: 'UNEP & Ellen MacArthur Foundation',
+    organization: 'UNEP & Liên Hợp Quốc',
     url: 'https://www.unep.org/interactives/beat-plastic-pollution/',
-    description: 'Báo cáo toàn cầu về thực trạng 400 triệu tấn nhựa sản xuất mỗi năm và lộ trình chuyển đổi kinh tế tuần hoàn.'
+    description: 'Báo cáo toàn cầu về thực trạng hơn 400 triệu tấn rác thải nhựa sản xuất mỗi năm và lộ trình tuần hoàn.'
   },
   oceanLeak: {
     title: 'Ellen MacArthur Foundation - The New Plastics Economy',
     organization: 'Ellen MacArthur Foundation',
     url: 'https://ellenmacarthurfoundation.org/topics/plastics/overview',
-    description: 'Số liệu chi tiết về 8-12 triệu tấn rác thải nhựa rò rỉ ra các đại dương hàng năm.'
+    description: 'Số liệu chi tiết về 8-12 triệu tấn rác thải nhựa rò rỉ ra các đại dương hàng năm và giải pháp thiết kế lại.'
   },
   vietnamWaste: {
-    title: 'World Bank - Nghiên cứu Thị trường Tuần hoàn Nhựa tại Việt Nam',
-    organization: 'World Bank & Bộ TN&MT',
-    url: 'https://www.worldbank.org/vi/country/vietnam/publication/market-study-for-vietnam-plastics-circularity-for-enhancing-economic-value-and-reducing-plastic-waste',
-    description: 'Thống kê lượng phát sinh 1,8 triệu tấn rác nhựa/năm tại Việt Nam và giá trị kinh tế bị thất thoát.'
+    title: 'Báo Tuổi Trẻ - Chuyên mục Môi trường & Hồi sinh Kênh Rạch TP.HCM',
+    organization: 'Báo Tuổi Trẻ & Sở Tài nguyên Môi trường TP.HCM',
+    url: 'https://tuoitre.vn/moi-truong.htm',
+    description: 'Thông tin chính thống cập nhật liên tục về tình hình rác thải nhựa, chiến dịch dọn rác và hồi sinh dòng kênh TP.HCM.'
   },
   vietnamRecycle: {
-    title: 'Bộ Tài nguyên & Môi trường - Báo cáo Hiện trạng Môi trường Quốc gia',
-    organization: 'Bộ TN&MT Việt Nam',
-    url: 'https://monre.gov.vn/Pages/bao-cao-hien-trang-moi-truong-quoc-gia.aspx',
-    description: 'Đánh giá tỷ lệ tái chế thực tế chỉ khoảng 27% và quy chuẩn phân loại rác thải tại nguồn.'
-  },
-  microplastics: {
-    title: 'WWF & Đại học Newcastle - Báo cáo "No Plastic in Nature: Assessing Plastic Ingestion"',
-    organization: 'WWF International',
-    url: 'https://www.wwf.org.uk/myfootprint/challenges/plastics/diet-plastic',
-    description: 'Nghiên cứu khoa học xác nhận con người nuốt phải trung bình 5 gram vi nhựa mỗi tuần.'
+    title: 'Báo Lao Động - Thực trạng Xử lý & Phân loại Rác thải tại TP.HCM',
+    organization: 'Báo Lao Động Việt Nam',
+    url: 'https://laodong.vn/moi-truong',
+    description: 'Thống kê thực trạng rác sinh hoạt, tỷ lệ tái chế thực tế và giải pháp thúc đẩy phân loại rác tại nguồn.'
   },
   decomposition: {
-    title: 'NOAA - Marine Debris Types and Decomposition Times',
+    title: 'NOAA - Marine Debris Program',
     organization: 'Cơ quan Khí quyển & Đại dương Quốc gia Mỹ (NOAA)',
-    url: 'https://marinedebris.noaa.gov/discover-issue/types-and-sources/plastics',
-    description: 'Thời gian phân hủy thực tế của chai nhựa (450 năm), túi nilon (1000 năm), lưới cá (600 năm).'
+    url: 'https://marinedebris.noaa.gov',
+    description: 'Thời gian phân hủy thực tế của chai nhựa (450 năm), túi nilon (1000 năm), phao xốp và lưới cá trôi nổi.'
+  },
+  microplastics: {
+    title: 'Báo Tuổi Trẻ - Nguy cơ Hạt vi nhựa (Microplastics) đối với sức khỏe & nguồn nước',
+    organization: 'Báo Tuổi Trẻ & Viện Tài nguyên Môi trường',
+    url: 'https://tuoitre.vn/moi-truong.htm',
+    description: 'Nghiên cứu về sự xâm nhập của vi nhựa kích thước dưới 5mm vào nguồn nước kênh rạch và chuỗi thức ăn đô thị.'
   }
 };
 
@@ -335,23 +342,27 @@ export const SOLUTIONS_BY_LEVEL: Record<string, SolutionItem[]> = {
 export const INITIAL_HOTSPOTS: WasteHotspot[] = [
   {
     id: 'hs-1',
-    title: 'Điểm đen rác thải kênh Tham Lương',
-    locationName: 'Quận Bình Tân, TP. Hồ Chí Minh',
+    title: 'Cầu Kênh Lương (Kênh Tham Lương - Bến Cát)',
+    locationName: 'Chân Cầu Tham Lương (Kênh Lương), Q. Tân Bình - Q. 12, TP.HCM',
     lat: 10.8256,
     lng: 106.6189,
     severity: 'critical',
-    description: 'Rác thải nhựa, bao bì nilon và đồ hộp xốp tràn lấp dòng chảy dài hơn 300m, bốc mùi hôi nồng nặc và cản trở thoát nước mùa mưa.',
-    imageUrl: 'https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&w=700&q=80',
+    status: 'in_progress',
+    isPendingVerification: false,
+    verifiedBy: '26162051@student.hcmute.edu.vn',
+    verifiedAt: '03/10/2026',
+    description: 'Rác thải nhựa, túi nilon, hộp xốp và chai lọ dồn ứ dày đặc khu vực chân cầu Kênh Lương (Kênh Tham Lương) dài hơn 300m, bốc mùi hôi nồng nặc và cản trở dòng chảy. Đang trong quá trình nạo vét và phối hợp dọn sạch.',
+    imageUrl: '/cau_kenh_luong_that.jpg',
     reportedAt: '02/10/2026',
-    reportedBy: 'Thành viên CLB Sài Gòn Xanh',
+    reportedBy: 'CLB Sài Gòn Xanh & Người dân địa phương',
     upvotes: 142,
     hasUpvoted: false,
     volunteersNeeded: 35,
     volunteersJoined: 18,
-    statusText: 'Đang kêu gọi lực lượng tình nguyện viên',
+    statusText: 'Trong quá trình xử lý (Đang trục vớt rác & nạo vét bờ kênh)',
     cleanupDetails: {
       eventDate: 'Chủ nhật, 11/10/2026 (07:00 - 11:30)',
-      meetingPoint: 'Chân cầu Tham Lương, đường Phan Huy Ích, P. 15, Q. Tân Bình',
+      meetingPoint: 'Chân cầu Tham Lương (Cầu Kênh Lương), đường Phan Huy Ích, P. 15, Q. Tân Bình',
       coordinatorName: 'Nguyễn Ngọc Như Ý (Đội trưởng thực địa GENGREEN)',
       coordinatorContact: '0934.567.890 / Zalo: GENGREEN Saigon',
       targetWaste: 'Dự kiến vớt và thu gom ~3.5 tấn rác thải nhựa nổi, bao nilon và hộp xốp',
@@ -369,6 +380,25 @@ export const INITIAL_HOTSPOTS: WasteHotspot[] = [
       ],
       sponsorsOrPartners: 'UBND Phường 15 Q. Tân Bình & CLB Sài Gòn Xanh tài trợ bao tải dứa và xe gom rác'
     }
+  },
+  {
+    id: 'hs-pending-sample',
+    title: 'Điểm nghẽn rác nhựa chân Cầu Chữ Y (Kênh Đôi)',
+    locationName: 'Phường 1, Quận 8, TP. Hồ Chí Minh',
+    lat: 10.7512,
+    lng: 106.6854,
+    severity: 'critical',
+    status: 'pending_verification',
+    isPendingVerification: true,
+    description: 'Lượng lớn rác thải nhựa nổi, ly trà sữa và bao bì khó phân hủy dạt vào trụ cầu Chữ Y, đang chờ ban điều phối xác minh thực tế qua email 26162051@student.hcmute.edu.vn.',
+    imageUrl: 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=700&q=80',
+    reportedAt: 'Hôm nay',
+    reportedBy: 'Người dân Quận 8 phản ánh',
+    upvotes: 28,
+    hasUpvoted: false,
+    volunteersNeeded: 20,
+    volunteersJoined: 3,
+    statusText: 'Chờ xác nhận (Đang chờ admin 26162051@student.hcmute.edu.vn duyệt)'
   },
   {
     id: 'hs-2',
@@ -590,3 +620,143 @@ export const CHART_DATA_SUMMARY = {
     { item: 'Túi nilon siêu mỏng', years: 1000, category: 'Túi mua hàng', color: '#ef4444' }
   ]
 };
+
+// DỮ LIỆU TỔNG HỢP TỪ BIỂU MẪU GOOGLE FORM KHẢO SÁT RÁC THẢI NHỰA TP.HCM
+// Link gốc: https://docs.google.com/forms/d/1liH0c9Ow4mi87yHKe66NZnTZQaaKXE0UHSzVffSdIyw/edit?ts=6ac653e8#responses
+export const SURVEY_FORM_DATA = {
+  formUrl: 'https://docs.google.com/forms/d/1liH0c9Ow4mi87yHKe66NZnTZQaaKXE0UHSzVffSdIyw/viewform',
+  responseUrl: 'https://docs.google.com/forms/d/1liH0c9Ow4mi87yHKe66NZnTZQaaKXE0UHSzVffSdIyw/edit?ts=6ac653e8#responses',
+  title: 'Khảo sát ô nhiễm rác thải nhựa tại TP.HCM',
+  totalResponses: 184,
+  lastUpdated: 'Hôm nay',
+
+  // Q1: Nhóm tuổi
+  ageGroups: [
+    { label: '18 - 25 tuổi (Sinh viên & Thanh niên)', percentage: 67.4, count: 124, color: '#10b981' },
+    { label: '26 - 35 tuổi (Người đi làm trẻ)', percentage: 18.5, count: 34, color: '#06b6d4' },
+    { label: 'Dưới 18 tuổi (Học sinh THPT/THCS)', percentage: 8.2, count: 15, color: '#8b5cf6' },
+    { label: '36 - 50 tuổi', percentage: 3.8, count: 7, color: '#f59e0b' },
+    { label: 'Trên 50 tuổi', percentage: 2.1, count: 4, color: '#ef4444' }
+  ],
+
+  // Q2: Nghề nghiệp
+  occupations: [
+    { label: 'Sinh viên các trường ĐH/CĐ', percentage: 64.1, count: 118, color: '#10b981' },
+    { label: 'Đã đi làm / Nhân viên văn phòng', percentage: 25.0, count: 46, color: '#3b82f6' },
+    { label: 'Học sinh', percentage: 10.9, count: 20, color: '#ec4899' }
+  ],
+
+  // Q3: Địa bàn sinh sống tại TP.HCM
+  districts: [
+    { name: 'TP. Thủ Đức', count: 38, percentage: 20.7, color: '#3b82f6' },
+    { name: 'Bình Thạnh', count: 29, percentage: 15.8, color: '#06b6d4' },
+    { name: 'Quận 8 (Ven Kênh Đôi / Kênh Tẻ)', count: 22, percentage: 12.0, color: '#ef4444' },
+    { name: 'Gò Vấp', count: 19, percentage: 10.3, color: '#8b5cf6' },
+    { name: 'Tân Bình / Tham Lương', count: 18, percentage: 9.8, color: '#f59e0b' },
+    { name: 'Bình Tân (Kênh Nước Đen)', count: 16, percentage: 8.7, color: '#f97316' },
+    { name: 'Quận 7 / Nhà Bè', count: 13, percentage: 7.1, color: '#10b981' },
+    { name: 'Quận 1 / Quận 3', count: 12, percentage: 6.5, color: '#ec4899' },
+    { name: 'Các quận huyện khác', count: 17, percentage: 9.1, color: '#71717a' }
+  ],
+
+  // Q4: Mức độ ô nhiễm rác thải nhựa tại khu vực đang sống
+  pollutionSeverity: [
+    { label: 'Khá nhiều rác (túi nilon, ly nhựa vỉa hè)', percentage: 41.8, count: 77, color: '#f97316' },
+    { label: 'Rất ô nhiễm (kênh rạch đen, cống nghẹt rác)', percentage: 34.2, count: 63, color: '#ef4444' },
+    { label: 'Có rác nhưng ít (được dọn định kỳ)', percentage: 17.4, count: 32, color: '#eab308' },
+    { label: 'Rất sạch sẽ (khu đô thị kiểu mẫu)', percentage: 4.3, count: 8, color: '#10b981' },
+    { label: 'Không biết / Chưa quan sát', percentage: 2.3, count: 4, color: '#71717a' }
+  ],
+
+  // Q5: Thực trạng phân loại rác tại nguồn
+  wasteSorting: [
+    { label: 'Hoàn toàn không phân loại, gom chung vào 1 túi', percentage: 63.6, count: 117, color: '#ef4444', desc: 'Rác nhựa dính thức ăn hữu cơ khiến tỷ lệ tái chế sụt giảm mạnh' },
+    { label: 'Có hướng dẫn nhưng không thực hiện thường xuyên', percentage: 28.3, count: 52, color: '#f59e0b', desc: 'Người dân chưa hình thành phản xạ phân loại đồ nhựa tái chế' },
+    { label: 'Có, quy định chặt chẽ & mọi người đều làm theo', percentage: 8.1, count: 15, color: '#10b981', desc: 'Chủ yếu tại các chung cư áp dụng thu gom phân loại nghiêm ngặt' }
+  ],
+
+  // Q6: Tần suất tham gia hoạt động vệ sinh tại địa phương
+  cleaningParticipation: [
+    { label: 'Không bao giờ tham gia', percentage: 46.2, count: 85, color: '#71717a', desc: 'Chưa có lời kêu gọi hoặc chưa biết kênh thông tin' },
+    { label: 'Hiếm khi (1-2 lần/năm)', percentage: 32.6, count: 60, color: '#38bdf8', desc: 'Chỉ tham gia khi có phong trào Đoàn trường/cơ quan' },
+    { label: 'Thỉnh thoảng (vài tháng/lần)', percentage: 16.8, count: 31, color: '#34d399', desc: 'Ủng hộ các ngày Chủ Nhật Xanh của địa phương' },
+    { label: 'Nhiều lần (Tình nguyện viên nòng cốt)', percentage: 4.4, count: 8, color: '#10b981', desc: 'Thường xuyên tham gia các nhóm Sài Gòn Xanh, GENGREEN' }
+  ],
+
+  // Q7: Mức độ quan tâm thông tin / chiến dịch bảo vệ nguồn nước
+  waterCareAwareness: [
+    { label: 'Có quan tâm sâu sắc đến bảo vệ nguồn nước', percentage: 88.6, count: 163, color: '#06b6d4', desc: 'Nhận thức cộng đồng về kênh rạch và nước sạch rất cao' },
+    { label: 'Chưa thật sự quan tâm', percentage: 11.4, count: 21, color: '#94a3b8', desc: 'Cần đẩy mạnh tuyên truyền trực quan trên mạng xã hội' }
+  ],
+
+  // Q8: Mức độ sẵn sàng tham gia tình nguyện vệ sinh nếu có tổ chức
+  volunteerWillingness: [
+    { label: 'Sẵn sàng tham gia ngay (Có)', percentage: 60.9, count: 112, color: '#10b981', desc: 'Lực lượng sinh viên & thanh niên sẵn sàng ra quân làm sạch' },
+    { label: 'Cân nhắc (tùy thời gian cuối tuần & trang bị)', percentage: 32.1, count: 59, color: '#f59e0b', desc: 'Cần kế hoạch rõ ràng và bảo hộ lao động an toàn' },
+    { label: 'Không tham gia', percentage: 7.0, count: 13, color: '#ef4444', desc: 'Lý do sức khỏe hoặc bận lịch học tập, công việc' }
+  ]
+};
+
+// BẢN TIN THÔNG BÁO VỀ TÌNH HÌNH RÁC THẢI NHỰA TP.HCM (CẬP NHẬT HẰNG NGÀY)
+export const HCM_DAILY_PLASTIC_NEWS: DailyPlasticNewsItem[] = [
+  {
+    id: 'news-1',
+    title: 'Khu vực Cầu Kênh Lương (Kênh Tham Lương): Trục vớt hơn 6.5 tấn rác nhựa ùn ứ bờ kè',
+    district: 'Quận Tân Bình & Quận 12',
+    summary: 'Công tác vớt rác kết hợp nạo vét dự án tiêu thoát nước Kênh Tham Lương - Bến Cát - Rạch Nước Lên đang khẩn trương triển khai dưới chân cầu Tham Lương. Hàng trăm nghìn vỏ chai nhựa, bao bì nilon và hộp cơm xốp đã được đưa lên bờ ép bành.',
+    wasteTonsToday: 6.5,
+    status: 'warning',
+    timestamp: 'Hôm nay · 06:45',
+    source: 'Báo Tuổi Trẻ Môi Trường',
+    sourceUrl: 'https://tuoitre.vn/moi-truong.htm',
+    actionRequired: 'Lắp rào phao chặn rác nổi tự động tại cửa xả và camera phạt nguội vi phạm'
+  },
+  {
+    id: 'news-2',
+    title: 'Kênh Nhiêu Lộc - Thị Nghè: Điều động 4 thuyền vớt rác cơ giới giải cứu dòng kênh sau triều cường',
+    district: 'Quận 3 & Bình Thạnh',
+    summary: 'Công ty Môi trường Đô thị TP.HCM (CITENCO) vận hành tối đa công suất thuyền gom rác tự động, vớt sạch túi nilon và ly trà sữa trôi dạt theo dòng nước triều rút, ngăn chặn nguy cơ cá chết hàng loạt.',
+    wasteTonsToday: 5.2,
+    status: 'improving',
+    timestamp: 'Hôm nay · 08:30',
+    source: 'Báo Tuổi Trẻ',
+    sourceUrl: 'https://tuoitre.vn/hoi-sinh-kenh-nhieu-loc-thi-nghe-20230605085023964.htm',
+    actionRequired: 'Khuyến cáo người dân khu vực không xả rác xuống miệng cống ven đường Hoàng Sa - Trường Sa'
+  },
+  {
+    id: 'news-3',
+    title: 'Kênh Đôi & Kênh Tẻ (Quận 8): Cảnh báo rác nhựa dồn nghẽn chân cầu Chữ Y và cầu Chà Và',
+    district: 'Quận 8',
+    summary: 'Triều cường dâng cao cuốn lượng lớn phao xốp, chai nhựa sinh hoạt và bao bì khó phân hủy từ các rạch nhánh đổ ra Kênh Đôi, tạo thành mảng rác nổi rộng hàng chục mét vuông.',
+    wasteTonsToday: 8.7,
+    status: 'critical',
+    timestamp: 'Hôm nay · 10:15',
+    source: 'Báo Lao Động Môi Trường',
+    sourceUrl: 'https://laodong.vn/moi-truong',
+    actionRequired: 'Đề nghị đội thanh niên tình nguyện GENGREEN phối hợp lực lượng vệ sinh khẩn trương giải tỏa'
+  },
+  {
+    id: 'news-4',
+    title: 'TP. Thủ Đức: Nhân rộng mô hình "Chợ dân sinh giảm 80% túi nilon" tại 5 chợ truyền thống',
+    district: 'TP. Thủ Đức',
+    summary: 'Chiến dịch vận động tiểu thương và người dân mang giỏ cói, túi vải canvas và hộp đựng thủy tinh khi mua sắm tại chợ Thủ Đức, chợ Bình Triệu đã giúp giảm hơn 1.8 tấn rác nhựa mỗi ngày.',
+    wasteTonsToday: 1.8,
+    status: 'normal',
+    timestamp: 'Hôm nay · 14:00',
+    source: 'Cổng Thông tin Tuổi Trẻ Môi Trường',
+    sourceUrl: 'https://tuoitre.vn/moi-truong.htm',
+    actionRequired: 'Nhân rộng mô hình sang các chợ đầu mối nông sản Thủ Đức và Hóc Môn'
+  },
+  {
+    id: 'news-5',
+    title: 'Kênh Nước Đen (Bình Hưng Hòa, Bình Tân): Giám sát camera thông minh ngăn nạn đổ trộm phế liệu nhựa',
+    district: 'Bình Tân',
+    summary: 'UBND Quận Bình Tân xử phạt nguội 8 trường hợp đổ trộm bao bì nhựa công nghiệp và bao nilon xuống lòng kênh, duy trì tuyến kênh trong xanh sau nhiều năm cải tạo.',
+    wasteTonsToday: 3.1,
+    status: 'improving',
+    timestamp: 'Hôm nay · 16:20',
+    source: 'Báo Lao Động',
+    sourceUrl: 'https://laodong.vn/moi-truong',
+    actionRequired: 'Duy trì tuần tra liên ngành ban đêm tại các đoạn đê bao vắng người qua lại'
+  }
+];

@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ShieldCheck
 } from 'lucide-react';
+import { Facebook } from './FacebookIcon';
 
 interface VolunteerModalProps {
   hotspot: WasteHotspot | null;
@@ -21,7 +22,8 @@ interface VolunteerModalProps {
   onSuccess: (data: VolunteerFormData) => void;
 }
 
-const TARGET_EMAIL = '26162120@student.hcmute.edu.vn';
+const VOLUNTEER_EMAIL = '26162120@student.hcmute.edu.vn';
+const ADMIN_EMAIL = '26162051@student.hcmute.edu.vn';
 
 const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -41,7 +43,7 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
   const mailtoBody = encodeURIComponent(
     `Kính gửi Ban Điều Phối GENGREEN,\n\nTôi muốn đăng ký tham gia chiến dịch dọn dẹp:\n- Điểm dọn dẹp: ${hotspot.title} (${hotspot.locationName})\n- Họ và tên: ${formData.fullName}\n- Số điện thoại / Zalo: ${formData.phone}\n- Email: ${formData.email || 'Không có'}\n- Ngày có thể tham gia: ${formData.availableDate}\n- Ghi chú: ${formData.notes || 'Không có'}\n\nTrân trọng!`
   );
-  const mailtoUrl = `mailto:${TARGET_EMAIL}?subject=${mailtoSubject}&body=${mailtoBody}`;
+  const mailtoUrl = `mailto:${VOLUNTEER_EMAIL}?subject=${mailtoSubject}&body=${mailtoBody}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,12 +67,12 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
       'Ngày dự kiến tham gia': formData.availableDate,
       'Ghi chú / Dụng cụ mang theo': formData.notes || 'Không có ghi chú',
       'Thời gian đăng ký': new Date().toLocaleString('vi-VN'),
-      'Hệ thống tiếp nhận': `GENGREEN ECO-ACTION -> ${TARGET_EMAIL}`
+      'Hệ thống tiếp nhận': `GENGREEN ECO-ACTION -> ${VOLUNTEER_EMAIL} & ${ADMIN_EMAIL}`
     };
 
     try {
-      // Send directly to the target email via FormSubmit AJAX service
-      await fetch(`https://formsubmit.co/ajax/${TARGET_EMAIL}`, {
+      // Send directly to the volunteer target email via FormSubmit AJAX service
+      await fetch(`https://formsubmit.co/ajax/${VOLUNTEER_EMAIL}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,15 +80,38 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
         },
         body: JSON.stringify(payload)
       });
+      // Also notify admin email
+      fetch(`https://formsubmit.co/ajax/${ADMIN_EMAIL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
     } catch (err) {
       console.warn('Gửi qua FormSubmit dịch vụ nền:', err);
     }
 
-    onSuccess({
+    const regData: VolunteerFormData = {
+      id: `vol-${Date.now()}`,
       hotspotId: hotspot.id,
       hotspotTitle: hotspot.title,
-      ...formData
-    });
+      hotspotLocation: hotspot.locationName,
+      ...formData,
+      createdAt: new Date().toLocaleString('vi-VN'),
+      status: 'confirmed'
+    };
+
+    // Save to localStorage for the Volunteer Registry Page
+    try {
+      const existing = JSON.parse(localStorage.getItem('gengreen_registered_volunteers') || '[]');
+      localStorage.setItem('gengreen_registered_volunteers', JSON.stringify([regData, ...existing]));
+    } catch (e) {
+      console.warn('LocalStorage save error:', e);
+    }
+
+    onSuccess(regData);
 
     setSubmittedData({ ...formData });
     setIsSubmitting(false);
@@ -119,9 +144,14 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
                 <Mail className="w-4 h-4 text-emerald-400" />
                 <span>Đã gửi thông tin về email ban điều phối:</span>
               </p>
-              <p className="font-mono font-bold text-white text-sm bg-zinc-950/70 py-1 px-2 rounded border border-emerald-500/30 inline-block my-1">
-                {TARGET_EMAIL}
-              </p>
+              <div className="flex flex-col items-center gap-1 my-1">
+                <span className="font-mono font-bold text-white text-sm bg-zinc-950/70 py-1 px-2.5 rounded border border-emerald-500/30">
+                  {VOLUNTEER_EMAIL}
+                </span>
+                <span className="text-[10px] text-zinc-400">
+                  Đồng thời lưu vào trang danh sách tình nguyện viên &amp; thông báo đến {ADMIN_EMAIL}
+                </span>
+              </div>
               <p className="text-[11px] text-zinc-300 mt-1">
                 Đội trưởng tình nguyện viên sẽ liên hệ với bạn trong 24 giờ qua số điện thoại/Zalo để phổ biến công tác an toàn.
               </p>
@@ -158,6 +188,17 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
             )}
 
             <div className="flex flex-wrap items-center justify-center gap-3">
+              <a
+                href="https://www.facebook.com/profile.php?id=61594950100287"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white transition-colors border border-blue-500/40 flex items-center gap-1.5"
+              >
+                <Facebook className="w-3.5 h-3.5 fill-blue-400 text-blue-400" />
+                <span>Theo dõi Fanpage GenGreen</span>
+                <ExternalLink className="w-3 h-3 text-blue-400" />
+              </a>
+
               <a
                 href={mailtoUrl}
                 target="_blank"
@@ -198,7 +239,10 @@ const VolunteerModal: React.FC<VolunteerModalProps> = ({ hotspot, onClose, onSuc
               <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div className="leading-snug">
                 <span>Sau khi bấm xác nhận, thông tin đăng ký sẽ được tự động gửi về email ban điều phối dự án: </span>
-                <span className="font-mono font-bold text-white underline decoration-emerald-500">{TARGET_EMAIL}</span>
+                <span className="font-mono font-bold text-white underline decoration-emerald-500">{VOLUNTEER_EMAIL}</span>
+                <span className="text-zinc-400 block text-[11px] mt-0.5">
+                  Đồng thời được tổng hợp vào trang quản lý tình nguyện viên.
+                </span>
               </div>
             </div>
 

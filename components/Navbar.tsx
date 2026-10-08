@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Leaf, Users, AlertTriangle, Lightbulb, BarChart3, MapPin, Menu, X, PlusCircle } from 'lucide-react';
+import { Leaf, Users, AlertTriangle, Lightbulb, BarChart3, MapPin, Menu, X, PlusCircle, Newspaper, UserCheck } from 'lucide-react';
+import { Facebook } from './FacebookIcon';
 
 interface NavbarProps {
   onOpenReportModal?: () => void;
+  onNavigateToRegistry?: () => void;
+  onNavigateToHome?: () => void;
+  currentPage?: 'home' | 'volunteer-registry';
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
+const Navbar: React.FC<NavbarProps> = ({
+  onOpenReportModal,
+  onNavigateToRegistry,
+  onNavigateToHome,
+  currentPage = 'home'
+}) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
@@ -14,7 +23,7 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 40);
 
-      const sections = ['hero', 'team', 'status', 'solutions', 'dashboard', 'map'];
+      const sections = ['hero', 'team', 'hcm-daily-news', 'status', 'solutions', 'dashboard', 'map', 'fanpage'];
       for (const section of sections) {
         const el = document.getElementById(section);
         if (el) {
@@ -33,6 +42,23 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
 
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
+    if (currentPage === 'volunteer-registry' && onNavigateToHome) {
+      onNavigateToHome();
+      setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          const navOffset = 80;
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - navOffset;
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+      return;
+    }
+
     const element = document.getElementById(id);
     if (element) {
       const navOffset = 80;
@@ -47,10 +73,12 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
 
   const navItems = [
     { id: 'team', label: 'Thành viên', icon: Users },
+    { id: 'hcm-daily-news', label: 'Bản tin TP.HCM', icon: Newspaper },
     { id: 'status', label: 'Thực trạng', icon: AlertTriangle },
     { id: 'solutions', label: 'Giải pháp 3R', icon: Lightbulb },
-    { id: 'dashboard', label: 'Biểu đồ số liệu', icon: BarChart3 },
+    { id: 'dashboard', label: 'Biểu đồ khảo sát', icon: BarChart3 },
     { id: 'map', label: 'Bản đồ rác thải', icon: MapPin },
+    { id: 'fanpage', label: 'Fanpage', icon: Facebook },
   ];
 
   return (
@@ -107,9 +135,35 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
           </nav>
 
           {/* Right Action */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2.5">
+            {currentPage === 'volunteer-registry' ? (
+              <button
+                onClick={onNavigateToHome}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 transition-all"
+              >
+                <span>← Về Trang Chủ</span>
+              </button>
+            ) : (
+              <button
+                onClick={onNavigateToRegistry}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 transition-all hover:scale-105 active:scale-95 shadow-sm"
+                title="Xem trang web tổng hợp những người đã đăng ký dọn rác"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>DS Đăng Ký Dọn Rác</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
+                if (currentPage === 'volunteer-registry' && onNavigateToHome) {
+                  onNavigateToHome();
+                  setTimeout(() => {
+                    const el = document.getElementById('map');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                  return;
+                }
                 if (onOpenReportModal) {
                   onOpenReportModal();
                 } else {
@@ -156,9 +210,40 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                 </button>
               );
             })}
+            {currentPage === 'volunteer-registry' ? (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onNavigateToHome) onNavigateToHome();
+                }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold bg-zinc-800 text-white"
+              >
+                <span>← Về Trang Chủ</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onNavigateToRegistry) onNavigateToRegistry();
+                }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
+              >
+                <UserCheck className="w-4 h-4 text-emerald-400" />
+                <span>Trang Tổng Hợp Đăng Ký Dọn Rác</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
+                if (currentPage === 'volunteer-registry' && onNavigateToHome) {
+                  onNavigateToHome();
+                  setTimeout(() => {
+                    const el = document.getElementById('map');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                  return;
+                }
                 if (onOpenReportModal) {
                   onOpenReportModal();
                 } else {

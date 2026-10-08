@@ -25,7 +25,7 @@ Chúng tôi đã tạo sẵn cho bạn file mã nguồn độc lập **chạy tr
    - Bản đồ tương tác Leaflet và liên kết OpenStreetMap.
    - 4 biểu đồ trực quan hóa dữ liệu rác thải nhựa.
    - Khung so sánh ảnh Trước / Sau (Before / After).
-   - Biểu mẫu báo cáo điểm rác và đăng ký tình nguyện viên gửi về email `26162120@student.hcmute.edu.vn`.
+   - Biểu mẫu báo cáo điểm rác và đăng ký tình nguyện viên gửi về email `26162051@student.hcmute.edu.vn`.
 
 Hoặc trên Windows: bạn có thể bấm đúp vào file **`chay_trang_web.bat`**.
 
@@ -47,6 +47,6 @@ Nếu bạn có cài đặt **Node.js** trên máy tính:
 
 ---
 
-## 📧 DỮ LIỆU ĐĂNG KÝ
+## 📧 DỮ LIỆU ĐĂNG KÝ & XÁC NHẬN
 Toàn bộ biểu mẫu Đăng ký tình nguyện viên và Báo cáo điểm rác đều được cấu hình tự động gửi về email:
-**`26162120@student.hcmute.edu.vn`**
+**`26162051@student.hcmute.edu.vn`**
